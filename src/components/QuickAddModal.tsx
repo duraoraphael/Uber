@@ -135,7 +135,7 @@ export function QuickAddModal({ open, onClose, onAddEarning, onAddExpense }: Pro
                 <Select id="qa-platform" label="Plataforma" options={platformOptions} value={platform} onChange={(e) => setPlatform(e.target.value as Platform)} />
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <Input id="qa-amount" label="Valor (R$)" type="number" min="0" step="0.01" placeholder="0,00" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                  <Input id="qa-hours" label="Horas" type="number" min="0" step="0.5" placeholder="0" value={hours} onChange={(e) => setHours(e.target.value)} />
+                  <Input id="qa-hours" label="Horas" type="number" min="0" step="0.1" placeholder="0" value={hours} onChange={(e) => setHours(e.target.value)} />
                   <Input id="qa-km" label="KM" type="number" min="0" step="1" placeholder="0" value={km} onChange={(e) => setKm(e.target.value)} className="col-span-2 sm:col-span-1" />
                 </div>
               </>

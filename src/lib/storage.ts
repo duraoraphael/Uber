@@ -17,6 +17,11 @@ const defaultData: AppData = {
     valuePerKm: 0.12,
     revenuePercent: 7,
   },
+  goals: {
+    earningGoal: 0,
+    expenseLimit: 0,
+  },
+  theme: 'dark',
 };
 
 /**
@@ -41,6 +46,8 @@ class LocalStorageRepository implements DataRepository {
         expenses: parsed.expenses ?? [],
         vehicle: parsed.vehicle ?? null,
         maintenanceConfig: parsed.maintenanceConfig ?? defaultData.maintenanceConfig,
+        goals: parsed.goals ?? defaultData.goals,
+        theme: parsed.theme ?? 'dark',
       };
     } catch {
       return { ...defaultData };

@@ -1,15 +1,16 @@
 import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
-import { CheckCircle, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle, AlertTriangle, X, Undo2 } from 'lucide-react';
 
 interface Toast {
   id: number;
   message: string;
   type: 'success' | 'error';
   exiting?: boolean;
+  onUndo?: () => void;
 }
 
 interface ToastContextType {
-  toast: (message: string, type?: 'success' | 'error') => void;
+  toast: (message: string, type?: 'success' | 'error', onUndo?: () => void) => void;
 }
 
 const ToastContext = createContext<ToastContextType>({ toast: () => {} });
@@ -28,16 +29,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 250);
   }, []);
 
-  const toast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+  const toast = useCallback((message: string, type: 'success' | 'error' = 'success', onUndo?: () => void) => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => dismiss(id), 3000);
+    setToasts((prev) => [...prev, { id, message, type, onUndo }]);
+    setTimeout(() => dismiss(id), onUndo ? 5000 : 3000);
   }, [dismiss]);
 
   return (
     <ToastContext value={{ toast }}>
       {children}
-      {/* Toast container */}
       <div className="fixed top-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2 pointer-events-none w-[90vw] max-w-sm">
         {toasts.map((t) => (
           <div
@@ -56,6 +56,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <AlertTriangle className="h-5 w-5 shrink-0 text-red-400" />
             )}
             <span className="flex-1 text-sm font-medium">{t.message}</span>
+            {t.onUndo && (
+              <button
+                onClick={() => { t.onUndo?.(); dismiss(t.id); }}
+                className="shrink-0 flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-white/20 cursor-pointer transition-colors"
+              >
+                <Undo2 className="h-3 w-3" /> Desfazer
+              </button>
+            )}
             <button onClick={() => dismiss(t.id)} className="shrink-0 cursor-pointer text-slate-400 hover:text-white">
               <X className="h-4 w-4" />
             </button>

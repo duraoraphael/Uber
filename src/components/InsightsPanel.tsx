@@ -1,105 +1,162 @@
-import { useState } from 'react';
-import { Sparkles, AlertTriangle, Lightbulb, CheckCircle, RefreshCw, Brain } from 'lucide-react';
-import type { AIInsight } from '../types';
+import { Sparkles, RefreshCw, Brain, AlertCircle, Key } from 'lucide-react';
 import { Card, CardTitle } from './ui/Card';
 
 interface Props {
-  insights: AIInsight[];
-  onRefresh?: () => void;
+  content: string | null;
+  loading: boolean;
+  error: string | null;
+  onGenerate: (forceRefresh?: boolean) => void;
 }
 
-const iconMap = {
-  warning: <AlertTriangle className="h-5 w-5 text-amber-400" />,
-  tip: <Lightbulb className="h-5 w-5 text-blue-400" />,
-  positive: <CheckCircle className="h-5 w-5 text-emerald-400" />,
-};
+function MarkdownRenderer({ markdown }: { markdown: string }) {
+  const html = markdownToHtml(markdown);
+  return (
+    <div
+      className="prose-gemini text-sm text-slate-200 leading-relaxed"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
 
-const bgMap = {
-  warning: 'border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10',
-  tip: 'border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10',
-  positive: 'border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10',
-};
+function markdownToHtml(md: string): string {
+  // Sanitize: strip HTML tags from source to prevent XSS
+  let safe = md.replace(/<[^>]*>/g, '');
 
-const labelMap = {
-  warning: { text: 'Atenção', color: 'text-amber-400' },
-  tip: { text: 'Dica', color: 'text-blue-400' },
-  positive: { text: 'Positivo', color: 'text-emerald-400' },
-};
+  let html = safe
+    // Headers
+    .replace(/^### (.+)$/gm, '<h3 class="text-base font-bold text-white mt-4 mb-2">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-lg font-bold text-white mt-5 mb-2">$1</h2>')
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-semibold">$1</strong>')
+    // Italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // Unordered lists
+    .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-slate-300 mb-1">$1</li>')
+    // Ordered lists
+    .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal text-slate-300 mb-1">$1</li>')
+    // Line breaks  
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
 
-export function InsightsPanel({ insights, onRefresh }: Props) {
-  const [analyzing, setAnalyzing] = useState(false);
+  // Wrap consecutive <li> in <ul>
+  html = html.replace(/((?:<li[^>]*>.*?<\/li>(?:<br\/>)?)+)/g, '<ul class="my-2 space-y-0.5">$1</ul>');
+  // Remove stray <br/> inside <ul>
+  html = html.replace(/<ul([^>]*)>(.*?)<\/ul>/gs, (match) =>
+    match.replace(/<br\/>/g, ''),
+  );
 
-  function handleRefresh() {
-    setAnalyzing(true);
-    setTimeout(() => {
-      onRefresh?.();
-      setAnalyzing(false);
-    }, 1500);
-  }
+  return html;
+}
+
+export function InsightsPanel({ content, loading, error, onGenerate }: Props) {
+  const hasApiKey = !!import.meta.env.VITE_GROQ_API_KEY;
 
   return (
-    <div className="animate-page space-y-5 sm:space-y-7">
+    <div className="animate-page space-y-4 sm:space-y-5 lg:space-y-6">
       <Card>
         <div className="mb-4 flex items-center justify-between">
-          <CardTitle className="mb-0!">
+          <CardTitle className="!mb-0">
             <span className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-400" />
-              Insights de IA
+              Insights IA
             </span>
           </CardTitle>
           <button
-            onClick={handleRefresh}
-            disabled={analyzing}
-            className="flex items-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/20 px-3.5 py-2 text-xs font-semibold text-purple-300 transition-all hover:bg-purple-600/30 cursor-pointer active:scale-95 disabled:opacity-50"
+            onClick={() => onGenerate(true)}
+            disabled={loading || !hasApiKey}
+            className="flex items-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/20 px-3.5 py-2 text-xs font-semibold text-purple-300 transition-all hover:bg-purple-600/30 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${analyzing ? 'animate-spin' : ''}`} />
-            {analyzing ? 'Analisando...' : 'Atualizar'}
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Analisando...' : 'Gerar Insight'}
           </button>
         </div>
 
-        {/* Card de "IA analisando" */}
-        {analyzing && (
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4 animate-page">
-            <Brain className="h-8 w-8 text-purple-400 animate-pulse" />
+        {/* API Key missing */}
+        {!hasApiKey && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <Key className="h-6 w-6 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-medium text-purple-300">Analisando seus dados...</p>
-              <p className="text-xs text-purple-400/60">A IA está processando seus registros</p>
+              <p className="text-sm font-medium text-amber-300 mb-1">Chave da API não configurada</p>
+              <p className="text-xs text-amber-400/70 leading-relaxed">
+                Crie um arquivo <code className="bg-slate-800 px-1.5 py-0.5 rounded text-amber-300">.env</code> na raiz do projeto com:
+              </p>
+              <pre className="mt-2 text-xs bg-slate-800/80 rounded-lg p-2.5 text-emerald-400 overflow-x-auto">
+                VITE_GROQ_API_KEY=sua_chave_aqui
+              </pre>
+              <p className="text-xs text-amber-400/60 mt-2">
+                Obtenha grátis em{' '}
+                <a
+                  href="https://console.groq.com/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-amber-300 hover:text-amber-200"
+                >
+                  console.groq.com/keys
+                </a>
+              </p>
             </div>
           </div>
         )}
 
-        <p className="mb-4 text-xs sm:text-sm text-slate-500">
-          Análise inteligente dos seus dados — conselhos para maximizar seu lucro.
-        </p>
+        {/* Loading */}
+        {loading && (
+          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4 animate-page">
+            <Brain className="h-8 w-8 text-purple-400 animate-pulse" />
+            <div>
+              <p className="text-sm font-medium text-purple-300">IA está analisando seus dados...</p>
+              <p className="text-xs text-purple-400/60">Isso pode levar alguns segundos</p>
+            </div>
+          </div>
+        )}
 
-        {insights.length === 0 && !analyzing ? (
+        {/* Error */}
+        {error && !loading && (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-4">
+            <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-300">Erro ao gerar insight</p>
+              <p className="text-xs text-red-400/70 mt-1">{error}</p>
+              <button
+                onClick={() => onGenerate(true)}
+                className="mt-2 text-xs text-red-300 underline hover:text-red-200 cursor-pointer"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Content */}
+        {content && !loading && (
+          <div className="rounded-2xl border border-purple-500/15 bg-purple-500/3 p-4 sm:p-5">
+            <MarkdownRenderer markdown={content} />
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!content && !loading && !error && hasApiKey && (
           <div className="flex flex-col items-center py-8 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 border border-slate-700">
               <Brain className="h-8 w-8 text-slate-600" />
             </div>
-            <p className="text-sm text-slate-500">Sem insights disponíveis</p>
-            <p className="text-xs text-slate-600 mt-1">Adicione registros para a IA analisar</p>
+            <p className="text-sm text-slate-500">Nenhum insight gerado ainda</p>
+            <p className="text-xs text-slate-600 mt-1">
+              Clique em "Gerar Insight" para a IA analisar seus dados
+            </p>
+            <button
+              onClick={() => onGenerate(false)}
+              className="mt-4 flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-purple-500 cursor-pointer active:scale-95"
+            >
+              <Sparkles className="h-4 w-4" />
+              Gerar Primeiro Insight
+            </button>
           </div>
-        ) : (
-          <ul className="space-y-3 sm:space-y-4">
-            {insights.map((insight, i) => (
-              <li
-                key={insight.id}
-                className={`animate-item flex items-start gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border p-3 sm:p-4 transition-colors cursor-default ${bgMap[insight.type]}`}
-                style={{ animationDelay: `${i * 80}ms` }}
-              >
-                <div className="mt-0.5 shrink-0">{iconMap[insight.type]}</div>
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-semibold mb-1 ${labelMap[insight.type].color}`}>
-                    {labelMap[insight.type].text}
-                  </p>
-                  <p className="text-sm text-slate-200 leading-relaxed">{insight.message}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
         )}
       </Card>
+
+      <p className="text-center text-[10px] text-slate-600">
+        Powered by Groq · Llama 3.3 70B • Resultados em cache por sessão
+      </p>
     </div>
   );
 }

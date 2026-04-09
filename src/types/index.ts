@@ -25,6 +25,10 @@ export interface Expense {
   category: ExpenseCategory;
   amount: number;
   description: string;
+  /** Preço por litro de combustível (só para category === 'combustivel') */
+  pricePerLiter?: number;
+  /** Litros abastecidos (calculado automaticamente: amount / pricePerLiter) */
+  liters?: number;
 }
 
 /** Dados do veículo do motorista */
@@ -33,37 +37,37 @@ export interface Vehicle {
   year: number;
   currentKm: number;
   fuelType: 'gasolina' | 'etanol' | 'flex' | 'gnv';
+  /** Consumo médio em km/l (opcional, usado no cálculo de combustível) */
+  avgKmPerLiter?: number;
 }
 
 /**
  * Configuração da reserva de manutenção.
- *
- * LÓGICA DE CÁLCULO:
- * - Por KM rodado: multiplica o total de KM do mês pelo valor reservado por KM.
- *   Exemplo: 3.000 km * R$ 0,12/km = R$ 360,00
- * - Por faturamento: aplica a porcentagem sobre o bruto mensal.
- *   Exemplo: R$ 8.000 bruto * 7% = R$ 560,00
- *
- * O sistema sugere entre 5% e 10% do bruto ou R$ 0,08–0,15 por KM,
- * cobrindo: troca de óleo (~R$ 200 a cada 5.000 km), pneus (~R$ 1.200
- * a cada 40.000 km), revisão geral (~R$ 800 a cada 10.000 km), e
- * imprevistos (freios, suspensão, etc.).
  */
 export interface MaintenanceReserveConfig {
   method: 'per_km' | 'per_revenue';
-  valuePerKm: number;       // R$ por KM (usado se method = 'per_km')
-  revenuePercent: number;    // % do bruto (usado se method = 'per_revenue')
+  valuePerKm: number;
+  revenuePercent: number;
 }
+
+/** Metas financeiras do motorista */
+export interface GoalConfig {
+  earningGoal: number;      // Meta de ganho mensal em R$
+  expenseLimit: number;     // Limite de gasto mensal em R$
+}
+
+/** Tema do app */
+export type Theme = 'dark' | 'light';
 
 /** Resumo mensal calculado */
 export interface MonthlySummary {
-  month: string;             // YYYY-MM
+  month: string;
   totalEarnings: number;
   earningsByPlatform: Record<Platform, number>;
   totalExpenses: number;
   expensesByCategory: Record<ExpenseCategory, number>;
   maintenanceReserve: number;
-  netProfit: number;         // lucro líquido = ganhos - gastos - reserva
+  netProfit: number;
   totalHours: number;
   totalKm: number;
   earningsPerHour: number;
@@ -84,4 +88,6 @@ export interface AppData {
   expenses: Expense[];
   vehicle: Vehicle | null;
   maintenanceConfig: MaintenanceReserveConfig;
+  goals: GoalConfig;
+  theme: Theme;
 }

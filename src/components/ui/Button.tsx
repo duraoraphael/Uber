@@ -18,7 +18,7 @@ export function Button({ variant = 'primary', className, ...props }: ButtonProps
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-lg sm:rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer active:scale-[0.97]',
+        'inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold transition-all disabled:opacity-50 cursor-pointer active:scale-[0.97]',
         variants[variant],
         className,
       )}
