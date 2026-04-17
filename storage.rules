@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidFileType() {
+      return request.resource.contentType.matches('image/.*')
+        && (request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'])
+        && request.resource.size < 5 * 1024 * 1024; // 5MB max
+    }
+
+    function isValidFileName() {
+      return request.resource.name.matches('users/[a-zA-Z0-9]+/(profile|documents)/[a-zA-Z0-9._-]+$');
+    }
+
+    // User files - profile images and documents
+    match /users/{userId}/{category}/{fileName} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId)
+                   && isValidFileType()
+                   && isValidFileName()
+                   && category in ['profile', 'documents'];
+      allow delete: if isOwner(userId);
+    }
+
+    // Block everything else
+    match /{allPaths=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // User profile document (vehicle, config, goals, theme)
+    match /users/{userId} {
+      allow read:          if isOwner(userId);
+      allow write:         if isOwner(userId);
+    }
+
+    // Earnings subcollection
+    match /users/{userId}/earnings/{docId} {
+      allow read:          if isOwner(userId);
+      allow write:         if isOwner(userId);
+    }
+
+    // Expenses subcollection
+    match /users/{userId}/expenses/{docId} {
+      allow read:          if isOwner(userId);
+      allow write:         if isOwner(userId);
+    }
+
+    // Block everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

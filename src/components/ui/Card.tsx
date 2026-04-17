@@ -9,7 +9,10 @@ interface CardProps {
 export function Card({ children, className }: CardProps) {
   return (
     <div className={cn(
-      'rounded-2xl bg-slate-900/80 border border-slate-800/80 p-4 sm:p-5 lg:p-6 backdrop-blur-sm',
+      'rounded-2xl border backdrop-blur-sm',
+      'bg-white/90 border-gray-200/80 dark:bg-slate-900/80 dark:border-slate-800/80',
+      'p-4 sm:p-5 md:p-6 lg:p-6',
+      'shadow-sm hover:shadow-md transition-shadow duration-200',
       className,
     )}>
       {children}
@@ -19,7 +22,11 @@ export function Card({ children, className }: CardProps) {
 
 export function CardTitle({ children, className }: CardProps) {
   return (
-    <h3 className={cn('mb-3 sm:mb-4 text-base sm:text-lg font-bold text-white', className)}>
+    <h3 className={cn(
+      'mb-3 sm:mb-4 text-base sm:text-lg md:text-xl font-bold leading-tight',
+      'text-slate-900 dark:text-white',
+      className
+    )}>
       {children}
     </h3>
   );

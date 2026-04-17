@@ -9,19 +9,23 @@ const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY as string | undefined;
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const SYSTEM_PROMPT = `Você é um **Consultor Financeiro** especializado em motoristas de aplicativo (Uber/99) que atuam em **Macaé/RJ**.
+function buildSystemPrompt(vehicle: Vehicle | null): string {
+  const vehicleInfo = vehicle
+    ? `${vehicle.model} ${vehicle.year} (${vehicle.fuelType})${vehicle.avgKmPerLiter ? `, consumo médio ${vehicle.avgKmPerLiter} km/l` : ''}`
+    : 'veículo não cadastrado (peça para o motorista cadastrar)';
+
+  return `Você é um **Consultor Financeiro** especializado em motoristas de aplicativo (Uber/99) no Brasil.
 
 Seu papel é analisar os dados financeiros que o motorista fornecer e responder com uma análise concisa, prática e acionável.
 
-Contexto fixo do motorista:
-- Veículo: Fiat Argo 2020 (Flex)
-- Cidade: Macaé/RJ (preço médio da gasolina na região ~R$ 6,00/L)
-- Consumo médio urbano do Fiat Argo: ~12 km/l (gasolina) ou ~8 km/l (etanol)
+Contexto do motorista:
+- Veículo: ${vehicleInfo}
+- Os dados reais do veículo e gastos estão no prompt do usuário.
 
 Você DEVE analisar:
-1. **Lucro real por KM** → (Ganhos − Gastos) / KM Rodados. Diga se está bom ou ruim e compare com benchmarks.
-2. **Eficiência de combustível** → Com base no valor gasto e nos KM rodados, calcule o consumo real (km/l). Compare com a média esperada do Argo.
-3. **Sugestões de metas** → Baseado no histórico, sugira metas diárias ou semanais realistas para os próximos dias.
+1. **Lucro real por KM** → (Ganhos − Gastos) / KM Rodados. Diga se está bom ou ruim e compare com benchmarks (~R$ 0,40–0,60/km para motoristas de app).
+2. **Eficiência de combustível** → Com base no valor gasto em combustível e nos KM rodados, calcule o custo real por km. Compare com o esperado para o veículo.
+3. **Sugestões de metas** → Baseado no histórico, sugira metas diárias ou semanais realistas.
 4. **Alertas** → Gastos fora do padrão, tendências negativas, oportunidades de economia.
 
 Regras de formatação:
@@ -30,6 +34,7 @@ Regras de formatação:
 - Seja direto — no máximo 400 palavras.
 - Valores monetários sempre em R$ com 2 casas decimais.
 - Se não houver dados suficientes, diga claramente e sugira o que o motorista deve registrar.`;
+}
 
 function buildUserPrompt(
   summary: MonthlySummary,
@@ -117,12 +122,14 @@ export async function generateGeminiInsight(
   earnings: Earning[],
   expenses: Expense[],
   vehicle: Vehicle | null,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!GROQ_API_KEY) {
     throw new Error('VITE_GROQ_API_KEY não configurada. Adicione no arquivo .env');
   }
 
   const userPrompt = buildUserPrompt(summary, prevSummary, earnings, expenses, vehicle);
+  const systemPrompt = buildSystemPrompt(vehicle);
 
   const res = await fetch(GROQ_URL, {
     method: 'POST',
@@ -133,19 +140,30 @@ export async function generateGeminiInsight(
     body: JSON.stringify({
       model: GROQ_MODEL,
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
       max_tokens: 1024,
     }),
+    signal,
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Erro Groq (${res.status}): ${body}`);
+    let errorDetail = `Status ${res.status}`;
+    try {
+      const body = await res.json() as { error?: { message?: string } };
+      errorDetail = body?.error?.message ?? errorDetail;
+    } catch {
+      errorDetail = await res.text().catch(() => errorDetail);
+    }
+    throw new Error(`Erro Groq: ${errorDetail}`);
   }
 
-  const data = await res.json();
-  return data.choices[0].message.content;
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const content = data?.choices?.[0]?.message?.content;
+  if (!content) {
+    throw new Error('Resposta vazia da IA. Tente novamente.');
+  }
+  return content;
 }

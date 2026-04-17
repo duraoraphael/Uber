@@ -30,6 +30,23 @@ body {
   padding-right: env(safe-area-inset-right);
   min-height: 100dvh;
   transition: background 0.3s, color 0.3s;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* Responsive font sizes */
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+}
+
+@media (min-width: 1280px) {
+  body {
+    font-size: 18px;
+    line-height: 1.6;
+  }
 }
 
 /* Light theme */
@@ -65,26 +82,100 @@ body::before {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Improved responsive container */
 .container-app {
   width: 100%;
-  max-width: 80rem;
+  max-width: 100%;
   margin-left: auto;
   margin-right: auto;
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));
 }
-@media (min-width: 640px) {
-  .container-app { padding-left: 2rem; padding-right: 2rem; }
-}
-@media (min-width: 1024px) {
-  .container-app { padding-left: 3rem; padding-right: 3rem; }
-}
-@media (min-width: 1280px) {
-  .container-app { padding-left: 4rem; padding-right: 4rem; }
+
+/* Mobile: full width with minimal padding */
+@media (max-width: 639px) {
+  .container-app {
+    padding-left: max(0.75rem, env(safe-area-inset-left));
+    padding-right: max(0.75rem, env(safe-area-inset-right));
+  }
 }
 
-@media (max-width: 359px) {
-  html { font-size: 14px; }
+/* Small tablets and up */
+@media (min-width: 640px) {
+  .container-app {
+    max-width: 640px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Medium screens */
+@media (min-width: 768px) {
+  .container-app {
+    max-width: 768px;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Large screens */
+@media (min-width: 1024px) {
+  .container-app {
+    max-width: 1024px;
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+}
+
+/* Extra large screens */
+@media (min-width: 1280px) {
+  .container-app {
+    max-width: 1280px;
+    padding-left: 3rem;
+    padding-right: 3rem;
+  }
+}
+
+/* Ultra wide screens */
+@media (min-width: 1536px) {
+  .container-app {
+    max-width: 1400px;
+    padding-left: 4rem;
+    padding-right: 4rem;
+  }
+}
+
+/* Touch-friendly interactions */
+@media (hover: none) and (pointer: coarse) {
+  .cursor-pointer {
+    cursor: default;
+  }
+
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ── Animations ── */

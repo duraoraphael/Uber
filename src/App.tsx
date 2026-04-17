@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import driveFinanceLogo from "./assets/Logo driveFinance.webp";
 import {
   LayoutDashboard,
   DollarSign,
@@ -13,8 +14,10 @@ import {
   Moon,
   Target,
   FileText,
+  User as UserIcon,
 } from "lucide-react";
-import { useAppData } from "./hooks/useAppData";
+import { useAuth } from "./contexts/AuthContext";
+import { useAppDataFirebase } from "./hooks/useAppDataFirebase";
 import { useGeminiInsights } from "./hooks/useGeminiInsights";
 import { computeMonthlySummary, previousMonth, getLastNMonths } from "./lib/calculations";
 import { exportEarningsCSV, exportExpensesCSV, exportFiscalReport } from "./lib/export";
@@ -25,13 +28,21 @@ import { VehiclePanel } from "./components/VehiclePanel";
 import { InsightsPanel } from "./components/InsightsPanel";
 import { MonthSelector } from "./components/MonthSelector";
 import { QuickAddModal } from "./components/QuickAddModal";
-import { ToastProvider, useToast } from "./components/ui/Toast";
+import { LoginScreen } from "./components/LoginScreen";
+import { useToast } from "./components/ui/Toast";
 import { Card, CardTitle } from "./components/ui/Card";
 import { Button } from "./components/ui/Button";
 import { Input } from "./components/ui/Input";
+import { AchievementsPanel } from "./components/AchievementsPanel";
+import { DailyRanking } from "./components/DailyRanking";
+import { FuelCalculator } from "./components/FuelCalculator";
+import { ReminderBanner, ReminderSettings } from "./components/Reminders";
+import { OnboardingScreen, isOnboardingDone } from "./components/Onboarding";
+import { ProfilePage } from "./components/ProfilePage";
+import { DESIGN_TOKENS } from "./lib/constants";
 
 
-type Tab = "dashboard" | "financas" | "veiculo" | "insights" | "config";
+type Tab = "dashboard" | "financas" | "veiculo" | "insights" | "config" | "perfil";
 
 const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,8 +53,11 @@ const tabs: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
 ];
 
 function AppContent() {
+  const { user } = useAuth();
   const {
     data,
+    loading: dataLoading,
+    error: dataError,
     addEarning,
     updateEarning,
     removeEarning,
@@ -58,7 +72,8 @@ function AppContent() {
     toggleTheme,
     exportBackup,
     importBackup,
-  } = useAppData();
+    migrateFromLocalStorage,
+  } = useAppDataFirebase();
 
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -69,6 +84,25 @@ function AppContent() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOnboarding, setShowOnboarding] = useState(!isOnboardingDone());
+
+  // Goals local state — deve ficar aqui (antes de qualquer early return)
+  const [earningGoal, setEarningGoal] = useState('');
+  const [expenseLimit, setExpenseLimit] = useState('');
+
+  // Sincroniza goals state quando data carrega
+  useEffect(() => {
+    setEarningGoal(String(data.goals.earningGoal || ''));
+    setExpenseLimit(String(data.goals.expenseLimit || ''));
+  }, [data.goals.earningGoal, data.goals.expenseLimit]);
+
+  // Migração automática: localStorage → Firestore (apenas no primeiro login)
+  useEffect(() => {
+    migrateFromLocalStorage();
+  }, [migrateFromLocalStorage]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const hasEarningsToday = data.earnings.some((e) => e.date === today);
 
   const summary = useMemo(
     () =>
@@ -98,14 +132,14 @@ function AppContent() {
 
   const handleGeminiGenerate = useCallback(
     (forceRefresh = false) => {
-      gemini.generate(
+      gemini.generate({
         summary,
-        prevSummary.totalEarnings > 0 ? prevSummary : null,
-        data.earnings,
-        data.expenses,
-        data.vehicle,
+        prevSummary: prevSummary.totalEarnings > 0 ? prevSummary : null,
+        earnings: data.earnings,
+        expenses: data.expenses,
+        vehicle: data.vehicle,
         forceRefresh,
-      );
+      });
     },
     [gemini, summary, prevSummary, data.earnings, data.expenses, data.vehicle],
   );
@@ -114,9 +148,40 @@ function AppContent() {
     setActiveTab(tab as Tab);
   }, []);
 
-  // Goals local state
-  const [earningGoal, setEarningGoal] = useState(String(data.goals.earningGoal || ''));
-  const [expenseLimit, setExpenseLimit] = useState(String(data.goals.expenseLimit || ''));
+  // ── Early returns (depois de TODOS os hooks) ──
+
+  if (dataLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+          <p className="text-slate-400">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (dataError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <h2 className="mb-2 text-xl font-bold text-white">Erro ao carregar dados</h2>
+          <p className="mb-6 text-sm text-slate-400">{dataError}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-medium text-white hover:bg-emerald-500 transition-colors cursor-pointer"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function handleSaveGoals() {
     setGoals({
@@ -144,74 +209,133 @@ function AppContent() {
       return;
     }
     const period = `${summaries[0].month} a ${summaries[summaries.length - 1].month}`;
-    exportFiscalReport(data.earnings, data.expenses, summaries, period);
-    toast("Relatório fiscal exportado!", "success");
+    const ok = exportFiscalReport(data.earnings, data.expenses, summaries, period);
+    if (ok) toast("Relatório fiscal gerado em PDF!", "success");
+    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
   }
 
   return (
+    <>
+    {showOnboarding && <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
     <div className={`flex min-h-screen flex-col ${data.theme === 'light' ? 'bg-gray-50 text-slate-700' : 'bg-slate-950 text-slate-300'}`}>
-      {/* ── Header ── */}
       <header className={`sticky top-0 z-30 backdrop-blur-xl border-b ${data.theme === 'light' ? 'bg-white/90 border-gray-200' : 'bg-slate-900/90 border-slate-800/60'}`}>
-        <div className="container-app flex items-center justify-between h-16 sm:h-18">
-          <h1 className={`text-xl font-extrabold tracking-tight ${data.theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
-            Driver<span className="text-emerald-500">Finance</span>
-          </h1>
+        <div className={`container-app flex items-center justify-between ${DESIGN_TOKENS.heights.header.mobile} sm:${DESIGN_TOKENS.heights.header.desktop} px-2 sm:px-4`}>
+          {/* Logo */}
+          <div className="flex items-center">
+            <img
+              src={driveFinanceLogo}
+              alt="Logo driveFinance"
+              className="h-10 sm:h-12 object-contain"
+            />
+          </div>
 
-          <div className="flex items-center gap-2">
-            {/* Theme toggle */}
+          {/* Desktop Navigation */}
+          <nav className={`hidden md:flex items-center gap-1.5 rounded-2xl p-1.5 border backdrop-blur-sm ${
+            data.theme === 'light'
+              ? 'border-gray-200/80 bg-white/60'
+              : 'border-slate-700/50 bg-slate-800/60'
+          }`}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
+                    activeTab === tab.id
+                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden lg:inline">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme toggle - visible on all screens */}
             <button
               onClick={toggleTheme}
-              className={`hidden sm:flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer ${
-                data.theme === 'light' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer min-h-[44px] min-w-[44px] ${
+                data.theme === 'light'
+                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
               aria-label="Alternar tema"
             >
               {data.theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </button>
 
-            {/* Desktop nav */}
-            <nav className={`hidden sm:flex gap-1.5 rounded-2xl p-1.5 border ${data.theme === 'light' ? 'bg-gray-100/80 border-gray-200' : 'bg-slate-800/60 border-slate-700/50'}`}>
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all cursor-pointer ${
-                      activeTab === tab.id
-                        ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                        : data.theme === 'light'
-                          ? "text-gray-500 hover:text-gray-800 hover:bg-gray-200/80"
-                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
+            {/* User avatar */}
+            <button
+              onClick={() => setActiveTab("perfil")}
+              className={`flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all cursor-pointer min-h-[44px] ${
+                activeTab === "perfil"
+                  ? "bg-emerald-600/20 ring-1 ring-emerald-500/50"
+                  : data.theme === 'light'
+                    ? 'hover:bg-gray-100'
+                    : 'hover:bg-slate-800'
+              }`}
+              title="Meu Perfil"
+            >
+              {user?.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt="Avatar"
+                  className="h-8 w-8 rounded-full border-2 border-emerald-500/50 object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-sm font-bold text-white">
+                  {(user?.displayName || user?.email || '?')[0].toUpperCase()}
+                </div>
+              )}
+              <span className={`hidden xl:block text-sm font-medium truncate max-w-[140px] ${
+                data.theme === 'light' ? 'text-gray-700' : 'text-slate-300'
+              }`}>
+                Olá, {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
+              </span>
+            </button>
           </div>
         </div>
       </header>
 
       {/* ── Content ── */}
-      <main className="flex-1 container-app py-4 sm:py-6 lg:py-8 pb-24 sm:pb-8">
-        <div className="mb-5 sm:mb-6">
+      <main className="flex-1 container-app py-3 sm:py-4 md:py-6 lg:py-8 pb-20 sm:pb-16 md:pb-12">
+        <div className="mb-4 sm:mb-5 md:mb-6">
           <MonthSelector month={month} onChange={setMonth} />
         </div>
 
         {activeTab === "dashboard" && (
-          <Dashboard
-            summary={summary}
-            prevSummary={prevSummary}
-            goals={data.goals}
-            earnings={data.earnings}
-            expenses={data.expenses}
-            maintenanceConfig={data.maintenanceConfig}
-            month={month}
-            onNavigate={handleNavigate}
-          />
+          <div className="space-y-4 sm:space-y-5">
+            <ReminderBanner hasEarningsToday={hasEarningsToday} theme={data.theme} />
+            <Dashboard
+              summary={summary}
+              prevSummary={prevSummary}
+              goals={data.goals}
+              earnings={data.earnings}
+              expenses={data.expenses}
+              maintenanceConfig={data.maintenanceConfig}
+              month={month}
+              onNavigate={handleNavigate}
+            />
+            <DailyRanking
+              earnings={data.earnings}
+              summary={summary}
+              goals={data.goals}
+              month={month}
+              theme={data.theme}
+            />
+            <AchievementsPanel
+              earnings={data.earnings}
+              expenses={data.expenses}
+              summary={summary}
+              theme={data.theme}
+            />
+          </div>
         )}
 
         {activeTab === "financas" && (
@@ -254,22 +378,25 @@ function AppContent() {
         )}
 
         {activeTab === "veiculo" && (
-          <VehiclePanel
-            vehicle={data.vehicle}
-            config={data.maintenanceConfig}
-            totalKm={summary.totalKm}
-            totalEarnings={summary.totalEarnings}
-            expenses={data.expenses}
-            month={month}
-            onSaveVehicle={(v) => {
-              setVehicle(v);
-              toast("Veículo salvo!", "success");
-            }}
-            onSaveConfig={(c) => {
-              setMaintenanceConfig(c);
-              toast("Configuração atualizada!", "success");
-            }}
-          />
+          <div className="animate-page space-y-4 sm:space-y-5">
+            <VehiclePanel
+              vehicle={data.vehicle}
+              config={data.maintenanceConfig}
+              totalKm={summary.totalKm}
+              totalEarnings={summary.totalEarnings}
+              expenses={data.expenses}
+              month={month}
+              onSaveVehicle={(v) => {
+                setVehicle(v);
+                toast("Veículo salvo!", "success");
+              }}
+              onSaveConfig={(c) => {
+                setMaintenanceConfig(c);
+                toast("Configuração atualizada!", "success");
+              }}
+            />
+            <FuelCalculator theme={data.theme} />
+          </div>
         )}
 
         {activeTab === "insights" && (
@@ -333,23 +460,25 @@ function AppContent() {
               <div className="space-y-3">
                 <Button
                   onClick={() => {
-                    exportEarningsCSV(data.earnings, month);
-                    toast("CSV de ganhos exportado!", "success");
+                    const ok = exportEarningsCSV(data.earnings, month);
+                    if (ok) toast("PDF de ganhos gerado!", "success");
+                    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
                   }}
                   variant="secondary"
                   className="w-full"
                 >
-                  <FileDown className="h-4 w-4" /> Ganhos do mês (CSV)
+                  <FileDown className="h-4 w-4" /> Ganhos do mês (PDF)
                 </Button>
                 <Button
                   onClick={() => {
-                    exportExpensesCSV(data.expenses, month);
-                    toast("CSV de gastos exportado!", "success");
+                    const ok = exportExpensesCSV(data.expenses, month);
+                    if (ok) toast("PDF de gastos gerado!", "success");
+                    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
                   }}
                   variant="secondary"
                   className="w-full"
                 >
-                  <FileDown className="h-4 w-4" /> Gastos do mês (CSV)
+                  <FileDown className="h-4 w-4" /> Gastos do mês (PDF)
                 </Button>
               </div>
             </Card>
@@ -362,12 +491,15 @@ function AppContent() {
                 </span>
               </CardTitle>
               <p className={`text-sm mb-3 ${data.theme === 'light' ? 'text-gray-500' : 'text-slate-500'}`}>
-                Gera um CSV com resumo dos últimos 12 meses para informar ao contador ou para declaração de imposto.
+                Gera um PDF com resumo dos últimos 12 meses para informar ao contador ou para declaração de imposto.
               </p>
               <Button onClick={handleExportFiscal} variant="secondary" className="w-full">
                 <FileText className="h-4 w-4" /> Exportar Relatório Fiscal
               </Button>
             </Card>
+
+            {/* Lembretes */}
+            <ReminderSettings theme={data.theme} />
 
             {/* Tema */}
             <Card className="lg:col-span-2">
@@ -404,15 +536,22 @@ function AppContent() {
             </Card>
           </div>
         )}
+
+        {activeTab === "perfil" && (
+          <ProfilePage
+            theme={data.theme}
+            onBack={() => setActiveTab("dashboard")}
+          />
+        )}
       </main>
 
       {/* ── FAB ── */}
       <button
         onClick={() => setQuickAddOpen(true)}
-        className="fixed z-20 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl shadow-emerald-600/30 transition-transform hover:scale-110 active:scale-90 cursor-pointer animate-fab right-5 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:bottom-8 sm:right-8"
+        className="fixed z-20 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xl shadow-emerald-600/30 transition-transform hover:scale-110 active:scale-90 cursor-pointer animate-fab right-4 bottom-20 sm:bottom-6 sm:right-6 md:h-16 md:w-16"
         aria-label="Adicionar rápido"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-6 w-6 md:h-7 md:w-7" />
       </button>
 
       {/* Quick Add Modal */}
@@ -440,27 +579,82 @@ function AppContent() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`relative flex flex-col items-center gap-1 px-3 py-2 transition-colors cursor-pointer active:scale-90 ${
+              className={`relative flex flex-col items-center gap-1 px-2 py-3 transition-colors cursor-pointer active:scale-90 min-h-[60px] min-w-[60px] rounded-lg ${
                 active ? "text-emerald-500" : data.theme === 'light' ? "text-gray-400" : "text-slate-500"
               }`}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{tab.label}</span>
+              <span className="text-[10px] font-medium leading-tight">{tab.label}</span>
               {active && (
-                <span className="absolute -top-1 h-0.5 w-6 rounded-full bg-emerald-400" />
+                <span className="absolute -top-1 h-0.5 w-8 rounded-full bg-emerald-400" />
               )}
             </button>
           );
         })}
+        {/* Perfil na bottom bar */}
+        <button
+          onClick={() => setActiveTab("perfil")}
+          className={`relative flex flex-col items-center gap-1 px-2 py-3 transition-colors cursor-pointer active:scale-90 min-h-[60px] min-w-[60px] rounded-lg ${
+            activeTab === "perfil" ? "text-emerald-500" : data.theme === 'light' ? "text-gray-400" : "text-slate-500"
+          }`}
+        >
+          {user?.photoURL ? (
+            <img src={user.photoURL} alt="" className="h-5 w-5 rounded-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <UserIcon className="h-5 w-5" />
+          )}
+          <span className="text-[10px] font-medium leading-tight">Perfil</span>
+          {activeTab === "perfil" && (
+            <span className="absolute -top-1 h-0.5 w-8 rounded-full bg-emerald-400" />
+          )}
+        </button>
       </nav>
+    {/* ── Wordmark rodapé ── */}
+
+    {/* ── Footer ── */}
+    <footer className={`mt-auto border-t ${data.theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-slate-900 border-slate-800'}`}>
+      <div className="container-app py-4 sm:py-6 md:py-8">
+        <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
+          <img
+            src={driveFinanceLogo}
+            alt="Logo driveFinance"
+            className="h-8 w-auto sm:h-10 md:h-12 object-contain"
+          />
+          <div className="flex flex-col items-center space-y-1 sm:space-y-2 text-center">
+            <p className={`text-sm sm:text-base font-medium ${data.theme === 'light' ? 'text-gray-700' : 'text-slate-300'}`}>
+              driveFinance
+            </p>
+            <p className={`text-xs sm:text-sm ${data.theme === 'light' ? 'text-gray-500' : 'text-slate-500'} max-w-xs`}>
+              Controle financeiro para motoristas
+            </p>
+          </div>
+          <div className="flex items-center">
+            <span className={`text-xs sm:text-sm ${data.theme === 'light' ? 'text-gray-400' : 'text-slate-600'}`}>
+              © 2024 driveFinance. Todos os direitos reservados.
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
     </div>
+    </>
   );
 }
 
 export default function App() {
-  return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
-  );
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  return <AppContent />;
 }

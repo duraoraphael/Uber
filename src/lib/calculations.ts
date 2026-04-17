@@ -167,9 +167,9 @@ export function estimateFuelCost(
   return (totalKm / avgKmPerLiter) * pricePerLiter;
 }
 
-/** Calcula variação percentual */
+/** Calcula variação percentual. Retorna null quando não há base de comparação válida. */
 export function percentChange(current: number, previous: number): number | null {
-  if (previous === 0) return current > 0 ? 100 : null;
+  if (previous === 0) return null; // sem base → não exibir percentual
   return ((current - previous) / previous) * 100;
 }
 
