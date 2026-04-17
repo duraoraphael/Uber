@@ -19,8 +19,9 @@ import {
 import { useAuth } from "./contexts/AuthContext";
 import { useAppDataFirebase } from "./hooks/useAppDataFirebase";
 import { useGeminiInsights } from "./hooks/useGeminiInsights";
+import { usePushNotifications, useMonthlyGoalNotification } from "./hooks/usePushNotifications";
 import { computeMonthlySummary, previousMonth, getLastNMonths } from "./lib/calculations";
-import { exportEarningsCSV, exportExpensesCSV, exportFiscalReport } from "./lib/export";
+import { exportEarningsCSV, exportExpensesCSV, exportFiscalReportCSV, exportConsolidatedCSV } from "./lib/csvExport";
 import { Dashboard } from "./components/Dashboard";
 import { EarningsForm } from "./components/EarningsForm";
 import { ExpensesForm } from "./components/ExpensesForm";
@@ -35,6 +36,7 @@ import { Button } from "./components/ui/Button";
 import { Input } from "./components/ui/Input";
 import { AchievementsPanel } from "./components/AchievementsPanel";
 import { DailyRanking } from "./components/DailyRanking";
+import { DailyGoalWidget } from "./components/DailyGoalWidget";
 import { FuelCalculator } from "./components/FuelCalculator";
 import { ReminderBanner, ReminderSettings } from "./components/Reminders";
 import { OnboardingScreen, isOnboardingDone } from "./components/Onboarding";
@@ -74,6 +76,19 @@ function AppContent() {
     importBackup,
     migrateFromLocalStorage,
   } = useAppDataFirebase();
+
+  // Setup push notifications
+  usePushNotifications(user?.uid);
+
+  // Setup monthly goal notification
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const earningsThisMonth = useMemo(
+    () => data.earnings
+      .filter(e => e.date.startsWith(currentMonth))
+      .reduce((sum, e) => sum + e.amount, 0),
+    [data.earnings, currentMonth]
+  );
+  useMonthlyGoalNotification(earningsThisMonth, data.goals.earningGoal);
 
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
@@ -209,9 +224,9 @@ function AppContent() {
       return;
     }
     const period = `${summaries[0].month} a ${summaries[summaries.length - 1].month}`;
-    const ok = exportFiscalReport(data.earnings, data.expenses, summaries, period);
-    if (ok) toast("Relatório fiscal gerado em PDF!", "success");
-    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
+    const ok = exportFiscalReportCSV(data.earnings, data.expenses, summaries, period);
+    if (ok) toast("Relatório fiscal exportado em CSV!", "success");
+    else toast("Erro ao exportar arquivo", "error");
   }
 
   return (
@@ -312,6 +327,11 @@ function AppContent() {
         {activeTab === "dashboard" && (
           <div className="space-y-4 sm:space-y-5">
             <ReminderBanner hasEarningsToday={hasEarningsToday} theme={data.theme} />
+            <DailyGoalWidget
+              earnings={data.earnings}
+              goals={data.goals}
+              theme={data.theme}
+            />
             <Dashboard
               summary={summary}
               prevSummary={prevSummary}
@@ -461,24 +481,35 @@ function AppContent() {
                 <Button
                   onClick={() => {
                     const ok = exportEarningsCSV(data.earnings, month);
-                    if (ok) toast("PDF de ganhos gerado!", "success");
-                    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
+                    if (ok) toast("Ganhos exportados em CSV!", "success");
+                    else toast("Nenhum dado para exportar", "error");
                   }}
                   variant="secondary"
                   className="w-full"
                 >
-                  <FileDown className="h-4 w-4" /> Ganhos do mês (PDF)
+                  <FileDown className="h-4 w-4" /> Ganhos do mês (CSV)
                 </Button>
                 <Button
                   onClick={() => {
                     const ok = exportExpensesCSV(data.expenses, month);
-                    if (ok) toast("PDF de gastos gerado!", "success");
-                    else toast("Popup bloqueado pelo navegador. Permita popups para este site.", "error");
+                    if (ok) toast("Gastos exportados em CSV!", "success");
+                    else toast("Nenhum dado para exportar", "error");
                   }}
                   variant="secondary"
                   className="w-full"
                 >
-                  <FileDown className="h-4 w-4" /> Gastos do mês (PDF)
+                  <FileDown className="h-4 w-4" /> Gastos do mês (CSV)
+                </Button>
+                <Button
+                  onClick={() => {
+                    const ok = exportConsolidatedCSV(data.earnings, data.expenses, month);
+                    if (ok) toast("Relatório consolidado exportado!", "success");
+                    else toast("Nenhum dado para exportar", "error");
+                  }}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  <FileDown className="h-4 w-4" /> Consolidado (CSV)
                 </Button>
               </div>
             </Card>
@@ -491,10 +522,10 @@ function AppContent() {
                 </span>
               </CardTitle>
               <p className={`text-sm mb-3 ${data.theme === 'light' ? 'text-gray-500' : 'text-slate-500'}`}>
-                Gera um PDF com resumo dos últimos 12 meses para informar ao contador ou para declaração de imposto.
+                Gera um CSV com resumo dos últimos 12 meses para informar ao contador ou para declaração de imposto.
               </p>
               <Button onClick={handleExportFiscal} variant="secondary" className="w-full">
-                <FileText className="h-4 w-4" /> Exportar Relatório Fiscal
+                <FileText className="h-4 w-4" /> Exportar Relatório Fiscal (CSV)
               </Button>
             </Card>
 
