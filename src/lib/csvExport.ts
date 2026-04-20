@@ -1,5 +1,4 @@
 import type { Earning, Expense, MonthlySummary } from '../types';
-import { currency, formatCurrency } from './utils';
 import { getMonth } from './calculations';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -64,7 +63,6 @@ export function exportEarningsCSV(earnings: Earning[], month?: string): boolean 
   const totalAmount = sorted.reduce((s, e) => s + e.amount, 0);
   const totalHours = sorted.reduce((s, e) => s + e.hours, 0);
   const totalKm = sorted.reduce((s, e) => s + e.km, 0);
-  const monthLabel = month ? formatMonth(month) : 'Todos os meses';
 
   let csv = 'Data,Plataforma,Valor,Horas,Quilômetros\n';
 
@@ -88,7 +86,6 @@ export function exportExpensesCSV(expenses: Expense[], month?: string): boolean 
   if (sorted.length === 0) return false;
 
   const totalAmount = sorted.reduce((s, e) => s + e.amount, 0);
-  const monthLabel = month ? formatMonth(month) : 'Todos os meses';
 
   let csv = 'Data,Categoria,Descrição,Valor\n';
 
@@ -106,8 +103,6 @@ export function exportExpensesCSV(expenses: Expense[], month?: string): boolean 
 
 /** Exporta relatório fiscal consolidado como CSV (12 meses) */
 export function exportFiscalReportCSV(
-  earnings: Earning[],
-  expenses: Expense[],
   summaries: MonthlySummary[],
   period: string,
 ): boolean {

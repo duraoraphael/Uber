@@ -16,13 +16,13 @@ export const DESIGN_TOKENS = {
   // Heights
   heights: {
     header: {
-      mobile: 'h-20',
-      desktop: 'h-24',
+      mobile: 'h-28',
+      desktop: 'h-32',
     },
     fab: 'h-16 w-16',
     avatar: 'h-8 w-8',
     logo: {
-      header: 'h-24',
+      header: 'h-32',
       login: 'h-24',
     },
   },

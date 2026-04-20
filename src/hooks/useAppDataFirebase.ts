@@ -65,7 +65,6 @@ export function useAppDataFirebase() {
 
     function handleError(err: unknown) {
       if (isCancelled) return;
-      console.error('Firestore listener error:', err);
       // Em caso de erro, desbloqueia o loading e mostra dados padrão
       earningsLoaded = true;
       expensesLoaded = true;
@@ -360,7 +359,6 @@ export function useAppDataFirebase() {
 
       return true;
     } catch (error) {
-      console.error('Migration failed:', error);
       return false;
     }
   }, [uid, updateProfile]);

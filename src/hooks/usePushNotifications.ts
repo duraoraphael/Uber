@@ -2,15 +2,8 @@ import { useEffect, useCallback, useState } from 'react';
 import { db } from '../lib/firebase';
 import { setupPushNotifications, setupForegroundMessageListener } from '../lib/messaging';
 
-interface NotificationPayload {
-  title?: string;
-  body?: string;
-  data?: Record<string, string>;
-}
-
 export function usePushNotifications(userId: string | undefined) {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
   // Setup inicial das notificações
   useEffect(() => {
@@ -28,7 +21,6 @@ export function usePushNotifications(userId: string | undefined) {
         // Setup listener para mensagens em foreground
         const unsubscribe = setupForegroundMessageListener((payload) => {
           // Aqui você pode processar notificações quando o app está aberto
-          console.log('Notificação recebida:', payload);
 
           // Opcionalmente, mostra uma toast ou notificação customizada
           if ('Notification' in window && Notification.permission === 'granted') {
@@ -55,7 +47,6 @@ export function usePushNotifications(userId: string | undefined) {
       setHasPermission(permission === 'granted');
       return permission === 'granted';
     } catch (error) {
-      console.error('Erro ao solicitar permissão:', error);
       return false;
     }
   }, []);

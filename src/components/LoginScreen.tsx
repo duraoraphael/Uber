@@ -66,7 +66,7 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <div className="w-full max-w-md">
         <img src={driveFinanceLogo} alt="Logo" className={`mx-auto mb-6 ${DESIGN_TOKENS.heights.logo.login}`} />
 

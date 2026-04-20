@@ -224,7 +224,7 @@ function AppContent() {
       return;
     }
     const period = `${summaries[0].month} a ${summaries[summaries.length - 1].month}`;
-    const ok = exportFiscalReportCSV(data.earnings, data.expenses, summaries, period);
+    const ok = exportFiscalReportCSV(summaries, period);
     if (ok) toast("Relatório fiscal exportado em CSV!", "success");
     else toast("Erro ao exportar arquivo", "error");
   }
@@ -232,24 +232,20 @@ function AppContent() {
   return (
     <>
     {showOnboarding && <OnboardingScreen onComplete={() => setShowOnboarding(false)} />}
-    <div className={`flex min-h-screen flex-col ${data.theme === 'light' ? 'bg-gray-50 text-slate-700' : 'bg-slate-950 text-slate-300'}`}>
-      <header className={`sticky top-0 z-30 backdrop-blur-xl border-b ${data.theme === 'light' ? 'bg-white/90 border-gray-200' : 'bg-slate-900/90 border-slate-800/60'}`}>
+    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <header className="sticky top-0 z-30 backdrop-blur-xl border-b shadow-sm bg-white/95 border-gray-200 shadow-gray-200/20 dark:bg-slate-900/95 dark:border-slate-800 dark:shadow-black/20">
         <div className={`container-app flex items-center justify-between ${DESIGN_TOKENS.heights.header.mobile} sm:${DESIGN_TOKENS.heights.header.desktop} px-2 sm:px-4`}>
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center group cursor-pointer transition-transform hover:scale-105">
             <img
               src={driveFinanceLogo}
               alt="Logo driveFinance"
-              className="h-10 sm:h-12 object-contain"
+              className="h-20 sm:h-20 lg:h-20 object-contain drop-shadow-sm transition-all group-hover:drop-shadow-md"
             />
           </div>
 
           {/* Desktop Navigation */}
-          <nav className={`hidden md:flex items-center gap-1.5 rounded-2xl p-1.5 border backdrop-blur-sm ${
-            data.theme === 'light'
-              ? 'border-gray-200/80 bg-white/60'
-              : 'border-slate-700/50 bg-slate-800/60'
-          }`}>
+          <nav className="hidden md:flex items-center gap-2 rounded-2xl p-2 border backdrop-blur-md shadow-md border-gray-300/60 bg-white/70 shadow-gray-200/30 dark:border-slate-600/60 dark:bg-slate-800/80 dark:shadow-black/40">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -258,8 +254,8 @@ function AppContent() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all cursor-pointer min-h-[44px] ${
                     activeTab === tab.id
-                      ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/20"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-gray-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700/70"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -274,25 +270,20 @@ function AppContent() {
             {/* Theme toggle - visible on all screens */}
             <button
               onClick={toggleTheme}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all cursor-pointer min-h-[44px] min-w-[44px] ${
-                data.theme === 'light'
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
+              className="flex h-10 w-10 items-center justify-center rounded-xl transition-all cursor-pointer min-h-[44px] min-w-[44px] font-semibold bg-gray-200 text-gray-700 hover:bg-gray-300 shadow-sm dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 dark:shadow-black/20"
               aria-label="Alternar tema"
+              title="Alternar tema"
             >
-              {data.theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              {data.theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
             </button>
 
             {/* User avatar */}
             <button
               onClick={() => setActiveTab("perfil")}
-              className={`flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all cursor-pointer min-h-[44px] ${
+              className={`flex items-center gap-2 rounded-xl px-3 py-1.5 transition-all cursor-pointer min-h-[44px] font-medium shadow-sm ${
                 activeTab === "perfil"
-                  ? "bg-emerald-600/20 ring-1 ring-emerald-500/50"
-                  : data.theme === 'light'
-                    ? 'hover:bg-gray-100'
-                    : 'hover:bg-slate-800'
+                  ? "bg-emerald-600/30 ring-2 ring-emerald-500 text-emerald-600"
+                  : "bg-gray-100 text-slate-700 hover:bg-gray-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
               }`}
               title="Meu Perfil"
             >
@@ -308,9 +299,7 @@ function AppContent() {
                   {(user?.displayName || user?.email || '?')[0].toUpperCase()}
                 </div>
               )}
-              <span className={`hidden xl:block text-sm font-medium truncate max-w-[140px] ${
-                data.theme === 'light' ? 'text-gray-700' : 'text-slate-300'
-              }`}>
+              <span className="hidden xl:block text-sm font-medium truncate max-w-[140px] text-gray-700 dark:text-slate-300">
                 Olá, {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
               </span>
             </button>
@@ -521,7 +510,7 @@ function AppContent() {
                   <FileText className="h-5 w-5 text-amber-400" /> Relatório Fiscal
                 </span>
               </CardTitle>
-              <p className={`text-sm mb-3 ${data.theme === 'light' ? 'text-gray-500' : 'text-slate-500'}`}>
+              <p className="text-sm mb-3 text-gray-500 dark:text-slate-500">
                 Gera um CSV com resumo dos últimos 12 meses para informar ao contador ou para declaração de imposto.
               </p>
               <Button onClick={handleExportFiscal} variant="secondary" className="w-full">
@@ -536,7 +525,8 @@ function AppContent() {
             <Card className="lg:col-span-2">
               <CardTitle>
                 <span className="flex items-center gap-2">
-                  {data.theme === 'light' ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-blue-400" />}
+                  <Sun className="h-5 w-5 text-amber-400 dark:hidden" />
+                  <Moon className="h-5 w-5 text-blue-400 hidden dark:block" />
                   Aparência
                 </span>
               </CardTitle>
@@ -546,11 +536,11 @@ function AppContent() {
                   className={`flex-1 rounded-xl border p-4 text-center transition-all cursor-pointer ${
                     data.theme === 'dark'
                       ? 'border-emerald-500/50 bg-emerald-500/10'
-                      : data.theme === 'light' ? 'border-gray-300 hover:border-gray-400' : 'border-slate-700 hover:border-slate-600'
+                      : 'border-gray-300 hover:border-gray-400'
                   }`}
                 >
                   <Moon className="h-6 w-6 mx-auto mb-2 text-blue-400" />
-                  <p className={`text-sm font-medium ${data.theme === 'light' ? 'text-gray-700' : 'text-white'}`}>Escuro</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-white">Escuro</p>
                 </button>
                 <button
                   onClick={toggleTheme}
@@ -561,7 +551,7 @@ function AppContent() {
                   }`}
                 >
                   <Sun className="h-6 w-6 mx-auto mb-2 text-amber-400" />
-                  <p className={`text-sm font-medium ${data.theme === 'light' ? 'text-gray-700' : 'text-white'}`}>Claro</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-white">Claro</p>
                 </button>
               </div>
             </Card>
@@ -600,9 +590,7 @@ function AppContent() {
       />
 
       {/* ── Bottom Tab Bar (mobile) ── */}
-      <nav className={`fixed inset-x-0 bottom-0 z-30 flex items-center justify-around backdrop-blur-xl border-t pt-2 pb-1 sm:hidden safe-bottom ${
-        data.theme === 'light' ? 'bg-white/95 border-gray-200' : 'bg-slate-900/95 border-slate-800/60'
-      }`}>
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around backdrop-blur-xl border-t pt-2 pb-1 sm:hidden safe-bottom bg-white/95 border-gray-200 dark:bg-slate-900/95 dark:border-slate-800/60">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -611,7 +599,7 @@ function AppContent() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`relative flex flex-col items-center gap-1 px-2 py-3 transition-colors cursor-pointer active:scale-90 min-h-[60px] min-w-[60px] rounded-lg ${
-                active ? "text-emerald-500" : data.theme === 'light' ? "text-gray-400" : "text-slate-500"
+                active ? "text-emerald-500" : "text-gray-400 dark:text-slate-500"
               }`}
             >
               <Icon className="h-5 w-5" />
@@ -626,7 +614,7 @@ function AppContent() {
         <button
           onClick={() => setActiveTab("perfil")}
           className={`relative flex flex-col items-center gap-1 px-2 py-3 transition-colors cursor-pointer active:scale-90 min-h-[60px] min-w-[60px] rounded-lg ${
-            activeTab === "perfil" ? "text-emerald-500" : data.theme === 'light' ? "text-gray-400" : "text-slate-500"
+            activeTab === "perfil" ? "text-emerald-500" : "text-gray-400 dark:text-slate-500"
           }`}
         >
           {user?.photoURL ? (
@@ -643,19 +631,19 @@ function AppContent() {
     {/* ── Wordmark rodapé ── */}
 
     {/* ── Footer ── */}
-    <footer className={`mt-auto border-t ${data.theme === 'light' ? 'bg-gray-50 border-gray-200' : 'bg-slate-900 border-slate-800'}`}>
+    <footer className="mt-auto border-t bg-gray-50 border-gray-200 dark:bg-slate-900 dark:border-slate-800">
       <div className="container-app py-4 sm:py-6 md:py-8">
         <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4">
           <img
             src={driveFinanceLogo}
             alt="Logo driveFinance"
-            className="h-8 w-auto sm:h-10 md:h-12 object-contain"
+            className="h-10 w-auto sm:h-12 md:h-14 object-contain drop-shadow-sm"
           />
           <div className="flex flex-col items-center space-y-1 sm:space-y-2 text-center">
-            <p className={`text-sm sm:text-base font-medium ${data.theme === 'light' ? 'text-gray-700' : 'text-slate-300'}`}>
+            <p className="text-sm sm:text-base font-medium text-gray-700 dark:text-slate-300">
               driveFinance
             </p>
-            <p className={`text-xs sm:text-sm ${data.theme === 'light' ? 'text-gray-500' : 'text-slate-500'} max-w-xs`}>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-slate-500 max-w-xs">
               Controle financeiro para motoristas
             </p>
           </div>

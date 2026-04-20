@@ -4,34 +4,53 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-const firebaseConfig = {
-  apiKey: "{{ VITE_FIREBASE_API_KEY }}",
-  authDomain: "{{ VITE_FIREBASE_AUTH_DOMAIN }}",
-  projectId: "{{ VITE_FIREBASE_PROJECT_ID }}",
-  storageBucket: "{{ VITE_FIREBASE_STORAGE_BUCKET }}",
-  messagingSenderId: "{{ VITE_FIREBASE_MESSAGING_SENDER_ID }}",
-  appId: "{{ VITE_FIREBASE_APP_ID }}",
-};
+// Firebase será inicializado via postMessage do App
+// Este service worker aguarda a configuração antes de usar o Firebase
+let messaging = null;
 
-firebase.initializeApp(firebaseConfig);
-
-const messaging = firebase.messaging();
+// Recebe a configuração do Firebase do aplicativo
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'INIT_FIREBASE') {
+    const firebaseConfig = event.data.config;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      messaging = firebase.messaging();
+      console.log('Firebase inicializado no Service Worker');
+    } catch (error) {
+      console.error('Erro ao inicializar Firebase:', error);
+    }
+  }
+});
 
 // Handle background messages
-messaging.onBackgroundMessage((payload) => {
-  console.log('Background message received:', payload);
+self.addEventListener('push', (event) => {
+  if (!messaging) {
+    console.warn('Firebase não inicializado. Mensagem ignorada.');
+    return;
+  }
 
-  const notificationTitle = payload.notification?.title || 'driveFinance';
-  const notificationOptions = {
-    body: payload.notification?.body || '',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
-    tag: payload.data?.tag || 'notification',
-    data: payload.data || {},
-    requireInteraction: payload.data?.requireInteraction === 'true',
-  };
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      console.log('Background message received:', payload);
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+      const notificationTitle = payload.notification?.title || 'driveFinance';
+      const notificationOptions = {
+        body: payload.notification?.body || '',
+        icon: '/favicon.svg',
+        badge: '/favicon.svg',
+        tag: payload.data?.tag || 'notification',
+        data: payload.data || {},
+        requireInteraction: payload.data?.requireInteraction === 'true',
+      };
+
+      event.waitUntil(
+        self.registration.showNotification(notificationTitle, notificationOptions)
+      );
+    } catch (error) {
+      console.error('Erro ao processar mensagem push:', error);
+    }
+  }
 });
 
 // Handle notification clicks

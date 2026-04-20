@@ -1,31 +1,263 @@
 rules_version = '2';
 
+/**
+ * ============================================================
+ * FIREBASE FIRESTORE SECURITY RULES - driveFinance
+ * ============================================================
+ *
+ * Este arquivo contém TODAS as regras de segurança para o
+ * Firestore database do driveFinance.
+ *
+ * DEPLOYMENT:
+ *   firebase deploy --only firestore:rules
+ *
+ * ESTRUTURA DO DATABASE:
+ *   /users/{userId}
+ *     - vehicle: Vehicle object
+ *     - maintenanceConfig: MaintenanceReserveConfig
+ *     - goals: GoalConfig
+ *     - theme: 'dark' | 'light'
+ *     - fcmToken?: string (Firebase Cloud Messaging token)
+ *     - fcmTokenUpdatedAt?: ISO timestamp
+ *
+ *   /users/{userId}/earnings/{docId}
+ *     - date: YYYY-MM-DD (ISO format)
+ *     - platform: 'uber' | '99' | 'outros'
+ *     - amount: number (R$ ganho)
+ *     - hours: number (horas trabalhadas)
+ *     - km: number (quilômetros rodados)
+ *
+ *   /users/{userId}/expenses/{docId}
+ *     - date: YYYY-MM-DD (ISO format)
+ *     - category: 'combustivel' | 'alimentacao' | 'taxas' | 'lavagem' | 'outros'
+ *     - amount: number (R$ gasto)
+ *     - description: string (até 200 caracteres)
+ *     - pricePerLiter?: number (opcional, para combustível)
+ *     - liters?: number (opcional, para combustível)
+ */
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    /**
+     * Verifica se o usuário autenticado é o dono do documento
+     * @param userId - ID do usuário no documento
+     * @returns true se autenticado e é dono
+     */
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
 
-    // User profile document (vehicle, config, goals, theme)
+    /**
+     * Valida se o userId tem formato correto
+     * @param userId - ID do usuário
+     * @returns true se tem entre 1 e 127 caracteres
+     */
+    function isValidUserId(userId) {
+      return userId.size() > 0 && userId.size() < 128;
+    }
+
+    // ============================================================
+    // VALIDATION FUNCTIONS - EARNINGS
+    // ============================================================
+
+    /**
+     * Valida um documento de Earning (ganho)
+     *
+     * Verifica:
+     * - Todos os campos obrigatórios estão presentes
+     * - Tipos de dados são corretos
+     * - Datas estão em formato ISO (YYYY-MM-DD)
+     * - Plataforma é uma das válidas
+     * - Valores numéricos estão dentro de limites realistas
+     *
+     * LIMITES:
+     * - amount: 0-10.000 R$ (limite diário realista)
+     * - hours: 0-24h (não pode ultrapassar um dia)
+     * - km: 0-1.000 km (limite por entrada, motorista pode ter múltiplas)
+     */
+    function isValidEarning(data) {
+      return data.keys().hasAll(['date', 'platform', 'amount', 'hours', 'km'])
+        && data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.platform in ['uber', '99', 'outros']
+        && data.amount is number && data.amount >= 0 && data.amount <= 10000
+        && data.hours is number && data.hours >= 0 && data.hours <= 24
+        && data.km is number && data.km >= 0 && data.km <= 1000;
+    }
+
+    // ============================================================
+    // VALIDATION FUNCTIONS - EXPENSES
+    // ============================================================
+
+    /**
+     * Valida um documento de Expense (gasto)
+     *
+     * Verifica:
+     * - Todos os campos obrigatórios estão presentes
+     * - Tipos de dados são corretos
+     * - Datas estão em formato ISO (YYYY-MM-DD)
+     * - Categorias são válidas
+     * - Valores estão dentro de limites realistas
+     * - Descrição não ultrapassa 200 caracteres
+     *
+     * LIMITES:
+     * - amount: 0-10.000 R$ (limite realista por gasto)
+     * - description: até 200 caracteres
+     */
+    function isValidExpense(data) {
+      return data.keys().hasAll(['date', 'category', 'amount', 'description'])
+        && data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.category in ['combustivel', 'alimentacao', 'taxas', 'lavagem', 'outros']
+        && data.amount is number && data.amount >= 0 && data.amount <= 10000
+        && data.description is string && data.description.size() <= 200;
+    }
+
+    // ============================================================
+    // VALIDATION FUNCTIONS - USER PROFILE
+    // ============================================================
+
+    /**
+     * Valida um documento de User Profile
+     *
+     * Verifica:
+     * - Theme é válido (dark ou light)
+     * - Goals (se presente) tem estrutura correta
+     * - MaintenanceConfig (se presente) é um mapa
+     * - Vehicle (se presente) é um mapa
+     *
+     * FLEXIBILITY:
+     * - Todos os campos são opcionais, exceto theme
+     * - Permite partial updates (usuário pode atualizar apenas tema)
+     * - Campos adicionais (fcmToken, etc) são permitidos
+     */
+    function isValidUserProfile(data) {
+      return data.theme is string && data.theme in ['dark', 'light']
+        && (data.goals == null || (
+          data.goals is map
+          && data.goals.earningGoal is number && data.goals.earningGoal >= 0
+          && data.goals.expenseLimit is number && data.goals.expenseLimit >= 0
+        ))
+        && (data.maintenanceConfig == null || data.maintenanceConfig is map)
+        && (data.vehicle == null || data.vehicle is map);
+    }
+
+    // ============================================================
+    // RULES - USER PROFILE DOCUMENT
+    // ============================================================
+
+    /**
+     * /users/{userId}
+     *
+     * Armazena dados do perfil do usuário:
+     * - Informações do veículo
+     * - Configurações de manutenção
+     * - Metas financeiras
+     * - Preferências (tema)
+     * - FCM token para push notifications
+     */
     match /users/{userId} {
-      allow read:          if isOwner(userId);
-      allow write:         if isOwner(userId);
+
+      // READ: Apenas o dono pode ler seu perfil
+      allow read: if isOwner(userId);
+
+      // CREATE: Criar novo perfil
+      // - Apenas o dono (autenticado e mismo userId)
+      // - UserId deve ter formato válido
+      // - Dados devem passar na validação
+      allow create: if isOwner(userId)
+        && isValidUserId(userId)
+        && isValidUserProfile(request.resource.data);
+
+      // UPDATE: Atualizar perfil (parcial ou completo)
+      // - Apenas o dono
+      // - Dados atualizados devem passar na validação
+      allow update: if isOwner(userId)
+        && isValidUserProfile(request.resource.data);
+
+      // DELETE: Prevent profile deletion
+      // - Perfis não podem ser deletados diretamente
+      // - Apenas Firebase Admin pode fazer isso via backend
+      allow delete: if false;
+
+      // ============================================================
+      // RULES - EARNINGS SUBCOLLECTION
+      // ============================================================
+
+      /**
+       * /users/{userId}/earnings/{docId}
+       *
+       * Armazena ganhos (earnings) do usuário
+       * Um documento por transação/corrida
+       */
+      match /earnings/{docId} {
+
+        // READ: Apenas o dono pode ler seus ganhos
+        allow read: if isOwner(userId);
+
+        // CREATE: Adicionar novo ganho
+        // - Apenas o dono
+        // - Dados devem ser válidos
+        allow create: if isOwner(userId)
+          && isValidEarning(request.resource.data);
+
+        // UPDATE: Editar um ganho existente
+        // - Apenas o dono
+        // - Dados atualizados devem ser válidos
+        allow update: if isOwner(userId)
+          && isValidEarning(request.resource.data);
+
+        // DELETE: Deletar um ganho
+        // - Apenas o dono
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================================
+      // RULES - EXPENSES SUBCOLLECTION
+      // ============================================================
+
+      /**
+       * /users/{userId}/expenses/{docId}
+       *
+       * Armazena gastos (expenses) do usuário
+       * Um documento por transação de gasto
+       */
+      match /expenses/{docId} {
+
+        // READ: Apenas o dono pode ler seus gastos
+        allow read: if isOwner(userId);
+
+        // CREATE: Adicionar novo gasto
+        // - Apenas o dono
+        // - Dados devem ser válidos
+        allow create: if isOwner(userId)
+          && isValidExpense(request.resource.data);
+
+        // UPDATE: Editar um gasto existente
+        // - Apenas o dono
+        // - Dados atualizados devem ser válidos
+        allow update: if isOwner(userId)
+          && isValidExpense(request.resource.data);
+
+        // DELETE: Deletar um gasto
+        // - Apenas o dono
+        allow delete: if isOwner(userId);
+      }
     }
 
-    // Earnings subcollection
-    match /users/{userId}/earnings/{docId} {
-      allow read:          if isOwner(userId);
-      allow write:         if isOwner(userId);
-    }
+    // ============================================================
+    // CATCH-ALL RULE
+    // ============================================================
 
-    // Expenses subcollection
-    match /users/{userId}/expenses/{docId} {
-      allow read:          if isOwner(userId);
-      allow write:         if isOwner(userId);
-    }
-
-    // Block everything else
+    /**
+     * Bloqueia TUDO o mais
+     *
+     * Por segurança, nenhum outro path é permitido
+     * Apenas os paths acima (users/*) são permitidos
+     */
     match /{document=**} {
       allow read, write: if false;
     }

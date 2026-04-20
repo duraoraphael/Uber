@@ -46,25 +46,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               t.exiting ? 'animate-toast-out' : 'animate-toast-in'
             } ${
               t.type === 'success'
-                ? 'border-emerald-500/30 bg-emerald-950/80 text-emerald-200'
-                : 'border-red-500/30 bg-red-950/80 text-red-200'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-200'
+                : 'border-red-200 bg-red-50 text-red-900 dark:border-red-500/30 dark:bg-red-950/80 dark:text-red-200'
             }`}
           >
             {t.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 shrink-0 text-emerald-400" />
+              <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
             ) : (
-              <AlertTriangle className="h-5 w-5 shrink-0 text-red-400" />
+              <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
             )}
             <span className="flex-1 text-sm font-medium">{t.message}</span>
             {t.onUndo && (
               <button
                 onClick={() => { t.onUndo?.(); dismiss(t.id); }}
-                className="shrink-0 flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-white/20 cursor-pointer transition-colors"
+                className="shrink-0 flex items-center gap-1 rounded-lg bg-black/10 dark:bg-white/10 px-2 py-1 text-xs font-semibold hover:bg-black/20 dark:hover:bg-white/20 cursor-pointer transition-colors"
               >
                 <Undo2 className="h-3 w-3" /> Desfazer
               </button>
             )}
-            <button onClick={() => dismiss(t.id)} className="shrink-0 cursor-pointer text-slate-400 hover:text-white">
+            <button onClick={() => dismiss(t.id)} className="shrink-0 cursor-pointer text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
               <X className="h-4 w-4" />
             </button>
           </div>

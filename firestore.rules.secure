@@ -21,12 +21,11 @@ service cloud.firestore {
 
     function isValidEarning(data) {
       return data.keys().hasAll(['date', 'platform', 'amount', 'hours', 'km'])
-        && data.keys().hasOnly(['date', 'platform', 'amount', 'hours', 'km'])
         && data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
         && data.platform in ['uber', '99', 'outros']
-        && data.amount is number && data.amount >= 0 && data.amount <= 1000000
+        && data.amount is number && data.amount >= 0 && data.amount <= 10000
         && data.hours is number && data.hours >= 0 && data.hours <= 24
-        && data.km is number && data.km >= 0 && data.km <= 5000;
+        && data.km is number && data.km >= 0 && data.km <= 1000;
     }
 
     // ============================================================
@@ -37,7 +36,7 @@ service cloud.firestore {
       return data.keys().hasAll(['date', 'category', 'amount', 'description'])
         && data.date is string && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
         && data.category in ['combustivel', 'alimentacao', 'taxas', 'lavagem', 'outros']
-        && data.amount is number && data.amount >= 0 && data.amount <= 100000
+        && data.amount is number && data.amount >= 0 && data.amount <= 10000
         && data.description is string && data.description.size() <= 200;
     }
 
@@ -46,12 +45,18 @@ service cloud.firestore {
     // ============================================================
 
     function isValidUserProfile(data) {
-      return data.keys().hasAll(['vehicle', 'maintenanceConfig', 'goals', 'theme'])
-        && data.theme in ['dark', 'light']
-        && data.goals is map
-        && data.goals.earningGoal is number && data.goals.earningGoal >= 0
-        && data.goals.expenseLimit is number && data.goals.expenseLimit >= 0
-        && data.maintenanceConfig is map;
+      // Check required theme field
+      return data.theme is string && data.theme in ['dark', 'light']
+        // Check if goals exist and have correct structure
+        && (data.goals == null || (
+          data.goals is map
+          && data.goals.earningGoal is number && data.goals.earningGoal >= 0
+          && data.goals.expenseLimit is number && data.goals.expenseLimit >= 0
+        ))
+        // Maintenance config is optional
+        && (data.maintenanceConfig == null || data.maintenanceConfig is map)
+        // Vehicle is optional
+        && (data.vehicle == null || data.vehicle is map);
     }
 
     // ============================================================
@@ -82,8 +87,7 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
-          && isValidEarning(request.resource.data)
-          && request.resource.data.keys().hasOnly(['date', 'platform', 'amount', 'hours', 'km']);
+          && isValidEarning(request.resource.data);
 
         allow update: if isOwner(userId)
           && isValidEarning(request.resource.data);
@@ -99,8 +103,7 @@ service cloud.firestore {
         allow read: if isOwner(userId);
 
         allow create: if isOwner(userId)
-          && isValidExpense(request.resource.data)
-          && request.resource.data.keys().size() == 4;  // Exactly 4 required fields
+          && isValidExpense(request.resource.data);
 
         allow update: if isOwner(userId)
           && isValidExpense(request.resource.data);

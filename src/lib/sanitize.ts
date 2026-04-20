@@ -5,10 +5,10 @@
  */
 
 // Note: Para usar, instale DOMPurify com:
-// npm install dompurify isomorphic-dompurify
+// npm install dompurify
 // npm install --save-dev @types/dompurify
 
-import DOMPurify from 'isomorphic-dompurify';
+import DOMPurify from 'dompurify';
 
 // ============================================================
 // Configurações de sanitização

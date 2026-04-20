@@ -1,34 +1,50 @@
-import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { app } from './firebase';
 
-let messaging: Messaging | null = null;
+let messaging: ReturnType<typeof getMessaging> | null = null;
 
 /**
  * Inicializa Firebase Cloud Messaging (FCM)
  * Deve ser chamado na primeira renderização do app
  */
-export async function initializeMessaging(): Promise<Messaging | null> {
+export async function initializeMessaging(): Promise<ReturnType<typeof getMessaging> | null> {
   if (messaging) return messaging;
 
   try {
     // Verifica se o navegador suporta service workers
     if (!('serviceWorker' in navigator)) {
-      console.warn('Service Workers não suportados no navegador');
       return null;
     }
 
     messaging = getMessaging(app);
 
     // Registra o service worker para FCM
-    if (!navigator.serviceWorker.controller) {
-      await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/',
-      });
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: '/',
+    });
+
+    // Envia a configuração do Firebase para o Service Worker
+    if (registration.active || registration.installing || registration.waiting) {
+      const firebaseConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+      };
+      
+      const controller = navigator.serviceWorker.controller || registration.installing;
+      if (controller) {
+        controller.postMessage({
+          type: 'INIT_FIREBASE',
+          config: firebaseConfig,
+        });
+      }
     }
 
     return messaging;
   } catch (error) {
-    console.error('Erro ao inicializar FCM:', error);
     return null;
   }
 }
@@ -45,7 +61,6 @@ export async function requestNotificationPermission(): Promise<string | null> {
     // Verifica permissão atual
     const permission = Notification.permission;
     if (permission === 'denied') {
-      console.warn('Notificações foram bloqueadas pelo usuário');
       return null;
     }
 
@@ -67,7 +82,6 @@ export async function requestNotificationPermission(): Promise<string | null> {
 
     return null;
   } catch (error) {
-    console.error('Erro ao solicitar permissão de notificação:', error);
     return null;
   }
 }
@@ -77,11 +91,10 @@ export async function requestNotificationPermission(): Promise<string | null> {
  * (quando o app está aberto)
  */
 export function setupForegroundMessageListener(
-  onMessage: (payload: { title?: string; body?: string; data?: Record<string, string> }) => void,
+  callback: (payload: { title?: string; body?: string; data?: Record<string, string> }) => void,
 ) {
   const msg = messaging;
   if (!msg) {
-    console.warn('FCM não inicializado. Chame initializeMessaging() primeiro.');
     return () => {};
   }
 
@@ -90,8 +103,7 @@ export function setupForegroundMessageListener(
     const body = payload.notification?.body || '';
     const data = payload.data || {};
 
-    console.log('Notificação em foreground:', { title, body, data });
-    onMessage({ title, body, data });
+    callback({ title, body, data });
   });
 }
 
@@ -114,9 +126,8 @@ export async function saveFcmTokenToFirestore(
       },
       { merge: true },
     );
-    console.log('Token FCM salvo no Firestore');
   } catch (error) {
-    console.error('Erro ao salvar token FCM:', error);
+    // Silently fail - not critical if token save fails
   }
 }
 
@@ -129,11 +140,8 @@ export async function setupPushNotifications(userId: string, db: any) {
     const token = await requestNotificationPermission();
     if (token) {
       await saveFcmTokenToFirestore(token, userId, db);
-      console.log('Notificações configuradas com sucesso');
-    } else {
-      console.warn('Usuário recusou permissões ou navegador não suporta notificações');
     }
   } catch (error) {
-    console.error('Erro ao configurar notificações:', error);
+    // Silently fail - not critical if push notification setup fails
   }
 }
