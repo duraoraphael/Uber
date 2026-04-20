@@ -3,6 +3,21 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+const requiredVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_APP_ID',
+] as const;
+
+const missing = requiredVars.filter((k) => !import.meta.env[k]);
+if (missing.length > 0) {
+  throw new Error(
+    `Firebase: variáveis de ambiente ausentes: ${missing.join(', ')}. ` +
+    'Adicione-as no painel do Vercel em Settings → Environment Variables.',
+  );
+}
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
