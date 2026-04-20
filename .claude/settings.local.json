@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npx -y firebase-tools@latest deploy --only firestore:rules)",
-      "Bash(git config *)"
+      "Bash(git config *)",
+      "mcp__claude_ai_Vercel__get_project",
+      "Bash(vercel --version)",
+      "Bash(npx vercel *)",
+      "Read(//c/Users/durao/.local/share/com.vercel.cli/**)",
+      "Read(//c/Users/durao/.vercel/**)",
+      "Read(//mnt/c/Users/durao/AppData/Local/com.vercel.cli/**)",
+      "Read(//mnt/c/Users/durao/.vercel/**)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__claude_ai_Vercel__list_deployments"
     ]
   }
 }
