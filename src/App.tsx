@@ -41,6 +41,10 @@ import { FuelCalculator } from "./components/FuelCalculator";
 import { ReminderBanner, ReminderSettings } from "./components/Reminders";
 import { OnboardingScreen, isOnboardingDone } from "./components/Onboarding";
 import { ProfilePage } from "./components/ProfilePage";
+import { BreakEvenWidget } from "./components/BreakEvenWidget";
+import { DriverScoreCard } from "./components/DriverScoreCard";
+import { WeekHeatmap } from "./components/WeekHeatmap";
+import { ShiftAnalysisCard } from "./components/ShiftAnalysisCard";
 import { DESIGN_TOKENS } from "./lib/constants";
 
 
@@ -167,10 +171,10 @@ function AppContent() {
 
   if (dataLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="text-center">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-          <p className="text-slate-400">Carregando dados...</p>
+          <p className="text-slate-500 dark:text-slate-400">Carregando dados...</p>
         </div>
       </div>
     );
@@ -178,13 +182,13 @@ function AppContent() {
 
   if (dataError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
         <div className="w-full max-w-md text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
             <span className="text-3xl">⚠️</span>
           </div>
-          <h2 className="mb-2 text-xl font-bold text-white">Erro ao carregar dados</h2>
-          <p className="mb-6 text-sm text-slate-400">{dataError}</p>
+          <h2 className="mb-2 text-xl font-bold text-slate-900 dark:text-white">Erro ao carregar dados</h2>
+          <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">{dataError}</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => window.location.reload()}
@@ -321,6 +325,12 @@ function AppContent() {
               goals={data.goals}
               theme={data.theme}
             />
+            <BreakEvenWidget
+              earnings={data.earnings}
+              expenses={data.expenses}
+              goals={data.goals}
+              month={month}
+            />
             <Dashboard
               summary={summary}
               prevSummary={prevSummary}
@@ -331,6 +341,9 @@ function AppContent() {
               month={month}
               onNavigate={handleNavigate}
             />
+            <DriverScoreCard summary={summary} goals={data.goals} />
+            <WeekHeatmap earnings={data.earnings} goals={data.goals} month={month} />
+            <ShiftAnalysisCard earnings={data.earnings} month={month} />
             <DailyRanking
               earnings={data.earnings}
               summary={summary}
@@ -414,6 +427,10 @@ function AppContent() {
             loading={gemini.loading}
             error={gemini.error}
             onGenerate={handleGeminiGenerate}
+            summary={summary}
+            goals={data.goals}
+            earnings={data.earnings}
+            expenses={data.expenses}
           />
         )}
 
@@ -536,22 +553,22 @@ function AppContent() {
                   className={`flex-1 rounded-xl border p-4 text-center transition-all cursor-pointer ${
                     data.theme === 'dark'
                       ? 'border-emerald-500/50 bg-emerald-500/10'
-                      : 'border-gray-300 hover:border-gray-400'
+                      : 'border-gray-200 hover:border-gray-300 dark:border-slate-700 dark:hover:border-slate-600'
                   }`}
                 >
                   <Moon className="h-6 w-6 mx-auto mb-2 text-blue-400" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-white">Escuro</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-white">Escuro</p>
                 </button>
                 <button
                   onClick={toggleTheme}
                   className={`flex-1 rounded-xl border p-4 text-center transition-all cursor-pointer ${
                     data.theme === 'light'
                       ? 'border-emerald-500/50 bg-emerald-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
+                      : 'border-gray-200 hover:border-gray-300 dark:border-slate-700 dark:hover:border-slate-600'
                   }`}
                 >
                   <Sun className="h-6 w-6 mx-auto mb-2 text-amber-400" />
-                  <p className="text-sm font-medium text-gray-700 dark:text-white">Claro</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-white">Claro</p>
                 </button>
               </div>
             </Card>
@@ -648,7 +665,7 @@ function AppContent() {
             </p>
           </div>
           <div className="flex items-center">
-            <span className={`text-xs sm:text-sm ${data.theme === 'light' ? 'text-gray-400' : 'text-slate-600'}`}>
+            <span className="text-xs sm:text-sm text-gray-400 dark:text-slate-600">
               © 2024 driveFinance. Todos os direitos reservados.
             </span>
           </div>
@@ -665,7 +682,7 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
         <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
       </div>
     );

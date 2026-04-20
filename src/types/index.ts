@@ -8,6 +8,9 @@ export type Platform = 'uber' | '99' | 'outros';
 /** Categorias de gasto */
 export type ExpenseCategory = 'combustivel' | 'alimentacao' | 'taxas' | 'lavagem' | 'outros';
 
+/** Turno de trabalho */
+export type Shift = 'morning' | 'afternoon' | 'night';
+
 /** Registro de ganho em uma plataforma */
 export interface Earning {
   id: string;
@@ -16,6 +19,7 @@ export interface Earning {
   amount: number;           // valor bruto em R$
   hours: number;            // horas trabalhadas
   km: number;               // quilômetros rodados
+  shift?: Shift;            // turno (opcional, retrocompatível)
 }
 
 /** Registro de gasto */

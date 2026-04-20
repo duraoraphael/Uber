@@ -1,6 +1,6 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { DollarSign, Plus, Trash2, TrendingUp, Search, Pencil } from 'lucide-react';
-import type { Earning, Platform } from '../types';
+import type { Earning, Platform, Shift } from '../types';
 import { Card, CardTitle } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
@@ -22,6 +22,13 @@ const platformOptions = [
   { value: 'outros', label: 'Outros' },
 ];
 
+const shiftOptions = [
+  { value: '', label: 'Não informar' },
+  { value: 'morning', label: '☀️ Manhã (6h–12h)' },
+  { value: 'afternoon', label: '🌤️ Tarde (12h–18h)' },
+  { value: 'night', label: '🌙 Noite (18h–6h)' },
+];
+
 const platformColors: Record<Platform, string> = {
   uber: 'bg-white/90 text-gray-900',
   '99': 'bg-amber-400/90 text-amber-950',
@@ -34,6 +41,7 @@ export function EarningsForm({ earnings, month, onAdd, onUpdate, onRemove }: Pro
   const [hours, setHours] = useState('');
   const [km, setKm] = useState('');
   const [date, setDate] = useState(todayISO());
+  const [shift, setShift] = useState<Shift | ''>('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [filterPlatform, setFilterPlatform] = useState<Platform | 'all'>('all');
@@ -46,6 +54,7 @@ export function EarningsForm({ earnings, month, onAdd, onUpdate, onRemove }: Pro
     setKm('');
     setDate(todayISO());
     setPlatform('uber');
+    setShift('');
     setEditingId(null);
     setShowForm(false);
   }
@@ -53,12 +62,13 @@ export function EarningsForm({ earnings, month, onAdd, onUpdate, onRemove }: Pro
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!amount || Number(amount) <= 0) return;
-    const data = {
+    const data: Omit<Earning, 'id'> = {
       date,
       platform,
       amount: Number(amount),
       hours: Number(hours) || 0,
       km: Number(km) || 0,
+      ...(shift ? { shift } : {}),
     };
     if (editingId) {
       onUpdate(editingId, data);
@@ -79,6 +89,7 @@ export function EarningsForm({ earnings, month, onAdd, onUpdate, onRemove }: Pro
     setAmount(String(e.amount));
     setHours(String(e.hours));
     setKm(String(e.km));
+    setShift(e.shift ?? '');
     setShowForm(true);
   }
 
@@ -179,6 +190,13 @@ export function EarningsForm({ earnings, month, onAdd, onUpdate, onRemove }: Pro
             <Input id="earn-hours" label="Horas" type="number" min="0" step="0.1" placeholder="0" value={hours} onChange={(e) => setHours(e.target.value)} />
             <Input id="earn-km" label="KM" type="number" min="0" step="1" placeholder="0" value={km} onChange={(e) => setKm(e.target.value)} className="col-span-2 sm:col-span-1" />
           </div>
+          <Select
+            id="earn-shift"
+            label="Turno (opcional)"
+            options={shiftOptions}
+            value={shift}
+            onChange={(e) => setShift(e.target.value as Shift | '')}
+          />
           <Button type="submit" className="w-full">
             <Plus className="h-4 w-4" /> {editingId ? 'Salvar Alteração' : 'Salvar Ganho'}
           </Button>

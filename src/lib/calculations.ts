@@ -7,8 +7,10 @@ import type {
   Expense,
   MaintenanceReserveConfig,
   MonthlySummary,
+  GoalConfig,
   Platform,
   ExpenseCategory,
+  Shift,
 } from '../types';
 
 /** Retorna a string YYYY-MM de uma data ISO */
@@ -217,4 +219,113 @@ export function computeFuelMonthlySummary(
     avgPricePerLiter,
     costPerKm,
   };
+}
+
+// ── New features ─────────────────────────────────────────────
+
+/**
+ * Meta diária adaptativa: calcula quanto o motorista precisa ganhar
+ * nos dias restantes do mês para bater a meta mensal.
+ */
+export function calcAdaptiveDailyGoal(
+  monthlyGoal: number,
+  earnedSoFar: number,
+  month: string,
+): { adaptiveGoal: number; remainingAmount: number; remainingDays: number } {
+  const now = new Date();
+  const [y, m] = month.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const todayDay = now.getFullYear() === y && now.getMonth() + 1 === m
+    ? now.getDate()
+    : lastDay;
+
+  const remainingDays = Math.max(1, lastDay - todayDay + 1);
+  const remainingAmount = Math.max(0, monthlyGoal - earnedSoFar);
+  const adaptiveGoal = remainingAmount / remainingDays;
+
+  return { adaptiveGoal, remainingAmount, remainingDays };
+}
+
+/**
+ * Ponto de equilíbrio diário: quanto o motorista precisa ganhar hoje
+ * para cobrir os custos fixos diários do mês.
+ */
+export function calcDailyBreakEven(
+  expenses: Expense[],
+  month: string,
+  workDays = 22,
+): number {
+  const monthExpenses = expenses.filter((e) => getMonth(e.date) === month);
+  const totalMonthlyExpenses = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  return totalMonthlyExpenses / workDays;
+}
+
+/**
+ * Score de eficiência do motorista (0–100).
+ * Combina: R$/hora, % da meta, R$/km.
+ */
+export function calcDriverScore(
+  summary: MonthlySummary,
+  goals: GoalConfig,
+): number {
+  // R$/hora — benchmark: R$50/h = 100%, R$25/h = 50%
+  const hourScore = summary.totalHours > 0
+    ? Math.min(100, (summary.earningsPerHour / 50) * 100)
+    : 0;
+
+  // % da meta mensal atingida (proporcional aos dias corridos)
+  const goalScore = goals.earningGoal > 0
+    ? Math.min(100, (summary.totalEarnings / goals.earningGoal) * 100)
+    : 50;
+
+  // R$/km — benchmark: R$0.55/km = 100%
+  const kmScore = summary.totalKm > 0
+    ? Math.min(100, (summary.earningsPerKm / 0.55) * 100)
+    : 0;
+
+  // Pesos: eficiência/hora 40%, meta 35%, km 25%
+  return Math.round(hourScore * 0.4 + goalScore * 0.35 + kmScore * 0.25);
+}
+
+/** Dados de análise por turno */
+export interface ShiftData {
+  shift: Shift;
+  label: string;
+  totalAmount: number;
+  totalHours: number;
+  avgPerHour: number;
+  count: number;
+}
+
+/**
+ * Analisa o desempenho por turno (manhã/tarde/noite).
+ * Apenas para ganhos que têm o campo shift preenchido.
+ */
+export function calcShiftAnalysis(earnings: Earning[], month: string): ShiftData[] {
+  const monthEarnings = earnings.filter((e) => getMonth(e.date) === month && e.shift);
+
+  const map: Record<Shift, Earning[]> = { morning: [], afternoon: [], night: [] };
+  for (const e of monthEarnings) {
+    if (e.shift) map[e.shift].push(e);
+  }
+
+  const labels: Record<Shift, string> = {
+    morning: 'Manhã',
+    afternoon: 'Tarde',
+    night: 'Noite',
+  };
+
+  return (['morning', 'afternoon', 'night'] as Shift[]).map((shift) => {
+    const items = map[shift];
+    const totalAmount = items.reduce((s, e) => s + e.amount, 0);
+    const totalHours = items.reduce((s, e) => s + e.hours, 0);
+    return {
+      shift,
+      label: labels[shift],
+      totalAmount,
+      totalHours,
+      avgPerHour: totalHours > 0 ? totalAmount / totalHours : 0,
+      count: items.length,
+    };
+  });
 }
