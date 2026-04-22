@@ -146,6 +146,29 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // VALIDATION FUNCTIONS - FIXED ITEMS
+    // ============================================================
+
+    /**
+     * Valida um documento de FixedItem (receita ou despesa fixa mensal)
+     *
+     * Verifica:
+     * - Campos obrigatórios: type, name, amount, category, active
+     * - type deve ser 'income' ou 'expense'
+     * - name não pode ser vazio (até 100 caracteres)
+     * - amount é número não negativo (até 1.000.000 R$)
+     * - active é boolean
+     */
+    function isValidFixedItem(data) {
+      return data.keys().hasAll(['type', 'name', 'amount', 'category', 'active'])
+        && data.type in ['income', 'expense']
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.amount is number && data.amount >= 0 && data.amount <= 1000000
+        && data.category is string && data.category.size() <= 50
+        && data.active is bool;
+    }
+
+    // ============================================================
     // RULES - USER PROFILE DOCUMENT
     // ============================================================
 
@@ -212,6 +235,34 @@ service cloud.firestore {
 
         // DELETE: Deletar um ganho
         // - Apenas o dono
+        allow delete: if isOwner(userId);
+      }
+
+      // ============================================================
+      // RULES - FIXED ITEMS SUBCOLLECTION
+      // ============================================================
+
+      /**
+       * /users/{userId}/fixedItems/{docId}
+       *
+       * Armazena receitas e despesas fixas mensais do usuário
+       * Ex: aluguel, salário, assinaturas
+       */
+      match /fixedItems/{docId} {
+
+        // READ: Apenas o dono pode ler seus itens fixos
+        allow read: if isOwner(userId);
+
+        // CREATE: Adicionar novo item fixo
+        allow create: if isOwner(userId)
+          && isValidFixedItem(request.resource.data);
+
+        // UPDATE: Editar item fixo (inclui toggle ativo/inativo via merge)
+        // request.resource.data = estado FINAL do documento após merge
+        allow update: if isOwner(userId)
+          && isValidFixedItem(request.resource.data);
+
+        // DELETE: Deletar item fixo
         allow delete: if isOwner(userId);
       }
 
