@@ -45,6 +45,8 @@ import { BreakEvenWidget } from "./components/BreakEvenWidget";
 import { DriverScoreCard } from "./components/DriverScoreCard";
 import { WeekHeatmap } from "./components/WeekHeatmap";
 import { ShiftAnalysisCard } from "./components/ShiftAnalysisCard";
+import { FixedItemsForm } from "./components/FixedItemsForm";
+import { FinancialSummaryCard } from "./components/FinancialSummaryCard";
 import { DESIGN_TOKENS } from "./lib/constants";
 
 
@@ -72,6 +74,10 @@ function AppContent() {
     updateExpense,
     removeExpense,
     restoreExpense,
+    addFixedItem,
+    updateFixedItem,
+    toggleFixedItem,
+    removeFixedItem,
     setVehicle,
     setMaintenanceConfig,
     setGoals,
@@ -341,6 +347,7 @@ function AppContent() {
               month={month}
               onNavigate={handleNavigate}
             />
+            <FinancialSummaryCard summary={summary} fixedItems={data.fixedItems} />
             <DriverScoreCard summary={summary} goals={data.goals} />
             <WeekHeatmap earnings={data.earnings} goals={data.goals} month={month} />
             <ShiftAnalysisCard earnings={data.earnings} month={month} />
@@ -362,6 +369,22 @@ function AppContent() {
 
         {activeTab === "financas" && (
           <div className="animate-page grid gap-4 sm:gap-5 lg:gap-6 lg:grid-cols-2">
+            <FixedItemsForm
+              fixedItems={data.fixedItems}
+              onAdd={(item) => {
+                addFixedItem(item);
+                toast("Item fixo adicionado!", "success");
+              }}
+              onUpdate={(id, item) => {
+                updateFixedItem(id, item);
+                toast("Item fixo atualizado!", "success");
+              }}
+              onToggle={(id, active) => toggleFixedItem(id, active)}
+              onRemove={(id) => {
+                removeFixedItem(id);
+                toast("Item fixo removido", "success");
+              }}
+            />
             <EarningsForm
               earnings={data.earnings}
               month={month}

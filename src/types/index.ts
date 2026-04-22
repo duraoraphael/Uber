@@ -63,6 +63,19 @@ export interface GoalConfig {
 /** Tema do app */
 export type Theme = 'dark' | 'light';
 
+/** Tipo de item fixo mensal */
+export type FixedItemType = 'income' | 'expense';
+
+/** Item fixo mensal (receita ou despesa recorrente) */
+export interface FixedItem {
+  id: string;
+  type: FixedItemType;
+  name: string;
+  amount: number;
+  category: string;
+  active: boolean;
+}
+
 /** Resumo mensal calculado */
 export interface MonthlySummary {
   month: string;
@@ -90,6 +103,7 @@ export interface AIInsight {
 export interface AppData {
   earnings: Earning[];
   expenses: Expense[];
+  fixedItems: FixedItem[];
   vehicle: Vehicle | null;
   maintenanceConfig: MaintenanceReserveConfig;
   goals: GoalConfig;

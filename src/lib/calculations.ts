@@ -5,6 +5,7 @@
 import type {
   Earning,
   Expense,
+  FixedItem,
   MaintenanceReserveConfig,
   MonthlySummary,
   GoalConfig,
@@ -295,6 +296,18 @@ export interface ShiftData {
   totalHours: number;
   avgPerHour: number;
   count: number;
+}
+
+/** Totais dos itens fixos mensais ativos */
+export function calcFixedTotals(fixedItems: FixedItem[]): {
+  fixedIncome: number;
+  fixedExpenses: number;
+  netFixed: number;
+} {
+  const active = fixedItems.filter((i) => i.active);
+  const fixedIncome = active.filter((i) => i.type === 'income').reduce((s, i) => s + i.amount, 0);
+  const fixedExpenses = active.filter((i) => i.type === 'expense').reduce((s, i) => s + i.amount, 0);
+  return { fixedIncome, fixedExpenses, netFixed: fixedIncome - fixedExpenses };
 }
 
 /**

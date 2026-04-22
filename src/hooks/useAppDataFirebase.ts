@@ -15,6 +15,7 @@ import type {
   AppData,
   Earning,
   Expense,
+  FixedItem,
   Vehicle,
   MaintenanceReserveConfig,
   GoalConfig,
@@ -24,6 +25,7 @@ import type {
 const defaultData: AppData = {
   earnings: [],
   expenses: [],
+  fixedItems: [],
   vehicle: null,
   maintenanceConfig: {
     method: 'per_revenue',
@@ -55,12 +57,13 @@ export function useAppDataFirebase() {
     setError(null);
     let earningsLoaded = false;
     let expensesLoaded = false;
+    let fixedItemsLoaded = false;
     let profileLoaded = false;
     let isCancelled = false;
 
     function checkReady() {
       if (isCancelled) return;
-      if (earningsLoaded && expensesLoaded && profileLoaded) setLoading(false);
+      if (earningsLoaded && expensesLoaded && fixedItemsLoaded && profileLoaded) setLoading(false);
     }
 
     function handleError(err: unknown) {
@@ -68,6 +71,7 @@ export function useAppDataFirebase() {
       // Em caso de erro, desbloqueia o loading e mostra dados padrão
       earningsLoaded = true;
       expensesLoaded = true;
+      fixedItemsLoaded = true;
       profileLoaded = true;
       setError(
         err instanceof Error ? err.message : 'Erro ao conectar com o banco de dados',
@@ -101,6 +105,19 @@ export function useAppDataFirebase() {
       handleError,
     );
 
+    // Fixed Items
+    const unsubFixedItems = onSnapshot(
+      query(collection(db, `users/${uid}/fixedItems`)),
+      (snap) => {
+        if (isCancelled) return;
+        const fixedItems = snap.docs.map((d) => ({ ...d.data(), id: d.id }) as FixedItem);
+        setData((prev) => ({ ...prev, fixedItems }));
+        fixedItemsLoaded = true;
+        checkReady();
+      },
+      handleError,
+    );
+
     // Profile (vehicle, config, goals, theme)
     const unsubProfile = onSnapshot(
       doc(db, `users/${uid}`),
@@ -126,6 +143,7 @@ export function useAppDataFirebase() {
       isCancelled = true;
       unsubEarnings();
       unsubExpenses();
+      unsubFixedItems();
       unsubProfile();
     };
   }, [uid]);
@@ -215,6 +233,39 @@ export function useAppDataFirebase() {
       if (!uid) return;
       const { id, ...rest } = expense;
       await setDoc(doc(db, `users/${uid}/expenses`, id), rest);
+    },
+    [uid],
+  );
+
+  // ── Fixed Items ──
+  const addFixedItem = useCallback(
+    async (item: Omit<FixedItem, 'id'>) => {
+      if (!uid) return;
+      await addDoc(collection(db, `users/${uid}/fixedItems`), item);
+    },
+    [uid],
+  );
+
+  const updateFixedItem = useCallback(
+    async (id: string, item: Omit<FixedItem, 'id'>) => {
+      if (!uid) return;
+      await setDoc(doc(db, `users/${uid}/fixedItems`, id), item);
+    },
+    [uid],
+  );
+
+  const toggleFixedItem = useCallback(
+    async (id: string, active: boolean) => {
+      if (!uid) return;
+      await setDoc(doc(db, `users/${uid}/fixedItems`, id), { active }, { merge: true });
+    },
+    [uid],
+  );
+
+  const removeFixedItem = useCallback(
+    async (id: string) => {
+      if (!uid) return;
+      await deleteDoc(doc(db, `users/${uid}/fixedItems`, id));
     },
     [uid],
   );
@@ -375,6 +426,10 @@ export function useAppDataFirebase() {
     updateExpense,
     removeExpense,
     restoreExpense,
+    addFixedItem,
+    updateFixedItem,
+    toggleFixedItem,
+    removeFixedItem,
     setVehicle,
     setMaintenanceConfig,
     setGoals,
